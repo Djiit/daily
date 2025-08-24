@@ -27,8 +27,8 @@ func SumCmd() *cobra.Command {
 		Long:  "Gather activity data from JIRA, GitHub, and Obsidian to provide a comprehensive summary of your work for the specified date.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate output format
-			if outputFormat != "text" && outputFormat != "json" {
-				return fmt.Errorf("invalid output format: %s (must be 'text' or 'json')", outputFormat)
+			if outputFormat != "text" && outputFormat != "json" && outputFormat != "tui" {
+				return fmt.Errorf("invalid output format: %s (must be 'text', 'json', or 'tui')", outputFormat)
 			}
 
 			targetDate, err := parseDate(date)
@@ -49,63 +49,67 @@ func SumCmd() *cobra.Command {
 			// Create providers
 			aggregator := provider.NewAggregator()
 
+			showVerbose := verbose && outputFormat == "text"
+
 			if cfg.GitHub.Enabled {
-				if verbose && outputFormat == "text" {
+				if showVerbose {
 					fmt.Println("✓ GitHub provider enabled")
 				}
 				aggregator.AddProvider(github.NewProvider(cfg.GitHub))
-			} else if verbose && outputFormat == "text" {
+			} else if showVerbose {
 				fmt.Println("✗ GitHub provider disabled")
 			}
 
 			if cfg.JIRA.Enabled {
-				if verbose && outputFormat == "text" {
+				if showVerbose {
 					fmt.Println("✓ JIRA provider enabled")
 				}
 				aggregator.AddProvider(jira.NewProvider(cfg.JIRA))
-			} else if verbose && outputFormat == "text" {
+			} else if showVerbose {
 				fmt.Println("✗ JIRA provider disabled")
 			}
 
 			if cfg.Obsidian.Enabled {
-				if verbose && outputFormat == "text" {
+				if showVerbose {
 					fmt.Println("✓ Obsidian provider enabled")
 				}
 				aggregator.AddProvider(obsidian.NewProvider(cfg.Obsidian))
-			} else if verbose && outputFormat == "text" {
+			} else if showVerbose {
 				fmt.Println("✗ Obsidian provider disabled")
 			}
 
 			// Get summary
 			ctx := context.Background()
-			if verbose && outputFormat == "text" {
+			if showVerbose {
 				fmt.Println()
 			}
-			summary, err := aggregator.GetSummaryWithVerbose(ctx, targetDate, verbose && outputFormat == "text")
+			summary, err := aggregator.GetSummaryWithVerbose(ctx, targetDate, showVerbose)
 			if err != nil {
 				return fmt.Errorf("failed to get activity summary: %w", err)
 			}
 
-			if verbose && outputFormat == "text" {
+			if showVerbose {
 				fmt.Printf("\n📊 Retrieved %d total activities\n\n", len(summary.Activities))
 			}
 
 			// Format and display results
-			formatter := output.NewFormatter()
-			var result string
-
 			switch outputFormat {
+			case "tui":
+				return output.RunTUI(summary)
 			case "json":
-				result = formatter.FormatJSON(summary)
+				formatter := output.NewFormatter()
+				result := formatter.FormatJSON(summary)
+				fmt.Print(result)
 			case "text":
+				formatter := output.NewFormatter()
+				var result string
 				if compact {
 					result = formatter.FormatCompactSummary(summary)
 				} else {
 					result = formatter.FormatSummary(summary)
 				}
+				fmt.Print(result)
 			}
-
-			fmt.Print(result)
 
 			return nil
 		},
@@ -114,7 +118,7 @@ func SumCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&date, "date", "d", "yesterday", "Date to get summary for (yesterday, today, or YYYY-MM-DD)")
 	cmd.Flags().BoolVarP(&compact, "compact", "c", false, "Use compact output format (text mode only)")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output for debugging (text mode only)")
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "text", "Output format: 'text' or 'json'")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "tui", "Output format: 'tui', 'text', or 'json'")
 
 	return cmd
 }
