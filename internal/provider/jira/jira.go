@@ -32,10 +32,10 @@ func (p *Provider) Name() string {
 }
 
 func (p *Provider) IsConfigured() bool {
-	return p.config.Enabled && 
-		   p.config.Token != "" && 
-		   p.config.Email != "" && 
-		   p.config.URL != ""
+	return p.config.Enabled &&
+		p.config.Token != "" &&
+		p.config.Email != "" &&
+		p.config.URL != ""
 }
 
 func (p *Provider) GetActivities(ctx context.Context, from, to time.Time) ([]activity.Activity, error) {
@@ -119,11 +119,11 @@ func (p *Provider) getUpdatedIssues(ctx context.Context, from, to time.Time) ([]
 func (p *Provider) parseJIRATime(timeStr string) (time.Time, error) {
 	// Try different time formats that JIRA might use
 	formats := []string{
-		"2006-01-02T15:04:05.000Z0700",    // "2025-08-20T18:41:17.540+0200"
-		"2006-01-02T15:04:05.000-0700",    // "2025-08-20T18:41:17.540-0200"
-		time.RFC3339,                      // "2006-01-02T15:04:05Z07:00"
-		"2006-01-02T15:04:05.000Z",        // "2025-08-20T18:41:17.540Z"
-		"2006-01-02T15:04:05Z",            // "2025-08-20T18:41:17Z"
+		"2006-01-02T15:04:05.000Z0700", // "2025-08-20T18:41:17.540+0200"
+		"2006-01-02T15:04:05.000-0700", // "2025-08-20T18:41:17.540-0200"
+		time.RFC3339,                   // "2006-01-02T15:04:05Z07:00"
+		"2006-01-02T15:04:05.000Z",     // "2025-08-20T18:41:17.540Z"
+		"2006-01-02T15:04:05Z",         // "2025-08-20T18:41:17Z"
 	}
 
 	for _, format := range formats {

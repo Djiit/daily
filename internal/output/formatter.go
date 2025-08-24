@@ -6,22 +6,73 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss/v2"
+
 	"daily/internal/activity"
 )
 
-type Formatter struct{}
+type Formatter struct {
+	// Styles for different components
+	titleStyle       lipgloss.Style
+	headerStyle      lipgloss.Style
+	platformStyle    lipgloss.Style
+	activityStyle    lipgloss.Style
+	timeStyle        lipgloss.Style
+	descriptionStyle lipgloss.Style
+	urlStyle         lipgloss.Style
+	tagStyle         lipgloss.Style
+	borderStyle      lipgloss.Style
+}
 
 func NewFormatter() *Formatter {
-	return &Formatter{}
+	return &Formatter{
+		titleStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("205")).
+			MarginBottom(1),
+		headerStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("39")).
+			MarginTop(1).
+			MarginBottom(1),
+		platformStyle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("86")).
+			PaddingLeft(1).
+			PaddingRight(1).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("86")),
+		activityStyle: lipgloss.NewStyle().
+			PaddingLeft(2).
+			PaddingTop(1).
+			MarginBottom(1),
+		timeStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Bold(true),
+		descriptionStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("244")).
+			PaddingLeft(5).
+			Italic(true),
+		urlStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("33")).
+			PaddingLeft(5).
+			Underline(true),
+		tagStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("208")).
+			PaddingLeft(5).
+			Italic(true),
+		borderStyle: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")),
+	}
 }
 
 func (f *Formatter) FormatSummary(summary *activity.Summary) string {
 	if len(summary.Activities) == 0 {
-		return "No activities found for this date."
+		return f.headerStyle.Render("No activities found for this date.")
 	}
 
 	var output strings.Builder
-	
+
 	// Sort activities by timestamp
 	activities := make([]activity.Activity, len(summary.Activities))
 	copy(activities, summary.Activities)
@@ -35,8 +86,15 @@ func (f *Formatter) FormatSummary(summary *activity.Summary) string {
 		groups[act.Platform] = append(groups[act.Platform], act)
 	}
 
-	output.WriteString(fmt.Sprintf("📊 Daily Summary for %s\n", summary.Date.Format("January 2, 2006")))
-	output.WriteString(fmt.Sprintf("Found %d activities across %d platforms\n\n", len(activities), len(groups)))
+	// Title with styling
+	title := fmt.Sprintf("📊 Daily Summary for %s", summary.Date.Format("January 2, 2006"))
+	output.WriteString(f.titleStyle.Render(title))
+	output.WriteString("\n")
+
+	// Summary stats
+	stats := fmt.Sprintf("Found %d activities across %d platforms", len(activities), len(groups))
+	output.WriteString(f.headerStyle.Render(stats))
+	output.WriteString("\n\n")
 
 	// Display by platform
 	platforms := []string{"github", "jira", "obsidian"}
@@ -61,15 +119,20 @@ func (f *Formatter) FormatSummary(summary *activity.Summary) string {
 
 func (f *Formatter) formatPlatformSection(platform string, activities []activity.Activity) string {
 	var section strings.Builder
-	
-	// Platform header with icon
+
+	// Platform header with icon and styling
 	icon := f.getPlatformIcon(platform)
-	section.WriteString(fmt.Sprintf("%s %s (%d)\n", icon, strings.Title(platform), len(activities)))
-	section.WriteString(strings.Repeat("─", 50) + "\n")
+	platformHeader := fmt.Sprintf("%s %s (%d)", icon, strings.Title(platform), len(activities))
+	section.WriteString(f.platformStyle.Render(platformHeader))
+	section.WriteString("\n")
+
+	// Styled border
+	border := strings.Repeat("─", 60)
+	section.WriteString(f.borderStyle.Render(border))
+	section.WriteString("\n")
 
 	for _, act := range activities {
 		section.WriteString(f.formatActivity(act))
-		section.WriteString("\n")
 	}
 
 	section.WriteString("\n")
@@ -77,27 +140,37 @@ func (f *Formatter) formatPlatformSection(platform string, activities []activity
 }
 
 func (f *Formatter) formatActivity(act activity.Activity) string {
-	var output strings.Builder
-	
-	// Time and type
-	timeStr := act.Timestamp.Format("15:04")
+	var activityContent strings.Builder
+
+	// Time and type with styling
+	timeStr := f.timeStyle.Render(act.Timestamp.Format("15:04"))
 	typeIcon := f.getTypeIcon(act.Type)
-	
-	output.WriteString(fmt.Sprintf("  %s %s  %s\n", timeStr, typeIcon, act.Title))
-	
+
+	// Main activity line
+	mainLine := fmt.Sprintf("%s %s  %s", timeStr, typeIcon, act.Title)
+	activityContent.WriteString(mainLine)
+	activityContent.WriteString("\n")
+
 	if act.Description != "" {
-		output.WriteString(fmt.Sprintf("     %s\n", act.Description))
+		description := f.descriptionStyle.Render(act.Description)
+		activityContent.WriteString(description)
+		activityContent.WriteString("\n")
 	}
-	
+
 	if act.URL != "" {
-		output.WriteString(fmt.Sprintf("     🔗 %s\n", act.URL))
+		url := f.urlStyle.Render("🔗 " + act.URL)
+		activityContent.WriteString(url)
+		activityContent.WriteString("\n")
 	}
-	
+
 	if len(act.Tags) > 0 {
-		output.WriteString(fmt.Sprintf("     🏷️  %s\n", strings.Join(act.Tags, ", ")))
+		tags := f.tagStyle.Render("🏷️  " + strings.Join(act.Tags, ", "))
+		activityContent.WriteString(tags)
+		activityContent.WriteString("\n")
 	}
-	
-	return output.String()
+
+	// Wrap the entire activity in the activity style
+	return f.activityStyle.Render(activityContent.String())
 }
 
 func (f *Formatter) getPlatformIcon(platform string) string {
@@ -106,7 +179,7 @@ func (f *Formatter) getPlatformIcon(platform string) string {
 		"jira":     "🎫",
 		"obsidian": "📝",
 	}
-	
+
 	if icon, exists := icons[platform]; exists {
 		return icon
 	}
@@ -121,7 +194,7 @@ func (f *Formatter) getTypeIcon(actType activity.ActivityType) string {
 		activity.ActivityTypeJiraTicket: "🎯",
 		activity.ActivityTypeNote:       "📄",
 	}
-	
+
 	if icon, exists := icons[actType]; exists {
 		return icon
 	}
@@ -130,11 +203,11 @@ func (f *Formatter) getTypeIcon(actType activity.ActivityType) string {
 
 func (f *Formatter) FormatCompactSummary(summary *activity.Summary) string {
 	if len(summary.Activities) == 0 {
-		return "No activities found for this date."
+		return f.headerStyle.Render("No activities found for this date.")
 	}
 
 	var output strings.Builder
-	
+
 	// Sort activities by timestamp
 	activities := make([]activity.Activity, len(summary.Activities))
 	copy(activities, summary.Activities)
@@ -142,11 +215,17 @@ func (f *Formatter) FormatCompactSummary(summary *activity.Summary) string {
 		return activities[i].Timestamp.Before(activities[j].Timestamp)
 	})
 
-	output.WriteString(fmt.Sprintf("Daily Summary - %d activities:\n\n", len(activities)))
+	// Header with styling
+	header := fmt.Sprintf("Daily Summary - %d activities:", len(activities))
+	output.WriteString(f.titleStyle.Render(header))
+	output.WriteString("\n\n")
 
 	for _, act := range activities {
-		timeStr := act.Timestamp.Format("15:04")
-		output.WriteString(fmt.Sprintf("%s [%s] %s\n", timeStr, act.Platform, act.Title))
+		timeStr := f.timeStyle.Render(act.Timestamp.Format("15:04"))
+		platformIcon := f.getPlatformIcon(act.Platform)
+		typeIcon := f.getTypeIcon(act.Type)
+		platformStr := fmt.Sprintf("%s %s", platformIcon, act.Platform)
+		output.WriteString(fmt.Sprintf("%s %s %s %s\n", timeStr, typeIcon, platformStr, act.Title))
 	}
 
 	return output.String()
@@ -165,7 +244,7 @@ func (f *Formatter) FormatJSON(summary *activity.Summary) string {
 		Date       string              `json:"date"`
 		Activities []activity.Activity `json:"activities"`
 		Summary    struct {
-			Total     int            `json:"total"`
+			Total      int            `json:"total"`
 			ByPlatform map[string]int `json:"by_platform"`
 			ByType     map[string]int `json:"by_type"`
 		} `json:"summary"`

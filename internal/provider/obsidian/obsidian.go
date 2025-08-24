@@ -13,13 +13,13 @@ import (
 )
 
 type Provider struct {
-	config provider.Config
+	config    provider.Config
 	vaultPath string
 }
 
 func NewProvider(config provider.Config) *Provider {
 	return &Provider{
-		config: config,
+		config:    config,
 		vaultPath: config.URL, // Using URL field to store vault path
 	}
 }
@@ -70,7 +70,7 @@ func (p *Provider) findRecentNotes(from, to time.Time) ([]activity.Activity, err
 		// Create activity for this note
 		relPath, _ := filepath.Rel(p.vaultPath, path)
 		title := strings.TrimSuffix(info.Name(), ".md")
-		
+
 		activities = append(activities, activity.Activity{
 			ID:          fmt.Sprintf("obsidian-%s", relPath),
 			Type:        activity.ActivityTypeNote,

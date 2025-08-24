@@ -39,7 +39,7 @@ func SumCmd() *cobra.Command {
 			if outputFormat == "text" {
 				fmt.Printf("Gathering activities for %s...\n", targetDate.Format("2006-01-02"))
 			}
-			
+
 			// Load configuration
 			cfg, err := config.Load()
 			if err != nil {
@@ -48,7 +48,7 @@ func SumCmd() *cobra.Command {
 
 			// Create providers
 			aggregator := provider.NewAggregator()
-			
+
 			if cfg.GitHub.Enabled {
 				if verbose && outputFormat == "text" {
 					fmt.Println("✓ GitHub provider enabled")
@@ -57,7 +57,7 @@ func SumCmd() *cobra.Command {
 			} else if verbose && outputFormat == "text" {
 				fmt.Println("✗ GitHub provider disabled")
 			}
-			
+
 			if cfg.JIRA.Enabled {
 				if verbose && outputFormat == "text" {
 					fmt.Println("✓ JIRA provider enabled")
@@ -66,7 +66,7 @@ func SumCmd() *cobra.Command {
 			} else if verbose && outputFormat == "text" {
 				fmt.Println("✗ JIRA provider disabled")
 			}
-			
+
 			if cfg.Obsidian.Enabled {
 				if verbose && outputFormat == "text" {
 					fmt.Println("✓ Obsidian provider enabled")
@@ -85,7 +85,7 @@ func SumCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to get activity summary: %w", err)
 			}
-			
+
 			if verbose && outputFormat == "text" {
 				fmt.Printf("\n📊 Retrieved %d total activities\n\n", len(summary.Activities))
 			}
@@ -93,7 +93,7 @@ func SumCmd() *cobra.Command {
 			// Format and display results
 			formatter := output.NewFormatter()
 			var result string
-			
+
 			switch outputFormat {
 			case "json":
 				result = formatter.FormatJSON(summary)
@@ -104,9 +104,9 @@ func SumCmd() *cobra.Command {
 					result = formatter.FormatSummary(summary)
 				}
 			}
-			
+
 			fmt.Print(result)
-			
+
 			return nil
 		},
 	}
@@ -121,7 +121,7 @@ func SumCmd() *cobra.Command {
 
 func parseDate(dateStr string) (time.Time, error) {
 	now := time.Now()
-	
+
 	switch dateStr {
 	case "today":
 		return now, nil

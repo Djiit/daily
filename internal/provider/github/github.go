@@ -71,10 +71,10 @@ func (p *Provider) getCommits(ctx context.Context, from, to time.Time) ([]activi
 		// Date range query
 		dateQuery = fmt.Sprintf("%s..%s", from.Format("2006-01-02"), to.Add(-time.Second).Format("2006-01-02"))
 	}
-	
+
 	query := fmt.Sprintf("author:%s committer-date:%s", p.config.Username, dateQuery)
-	
-	searchURL := fmt.Sprintf("https://api.github.com/search/commits?q=%s&sort=committer-date&order=desc", 
+
+	searchURL := fmt.Sprintf("https://api.github.com/search/commits?q=%s&sort=committer-date&order=desc",
 		url.QueryEscape(query))
 
 	var searchResult struct {
@@ -132,20 +132,20 @@ func (p *Provider) getPullRequests(ctx context.Context, from, to time.Time) ([]a
 		// Date range query
 		dateQuery = fmt.Sprintf("%s..%s", from.Format("2006-01-02"), to.Add(-time.Second).Format("2006-01-02"))
 	}
-	
+
 	// Include type:pr in the query BEFORE URL encoding
 	query := fmt.Sprintf("author:%s created:%s type:pr", p.config.Username, dateQuery)
-	
-	searchURL := fmt.Sprintf("https://api.github.com/search/issues?q=%s&sort=created&order=desc", 
+
+	searchURL := fmt.Sprintf("https://api.github.com/search/issues?q=%s&sort=created&order=desc",
 		url.QueryEscape(query))
 
 	var searchResult struct {
 		Items []struct {
-			Number     int    `json:"number"`
-			Title      string `json:"title"`
-			Body       string `json:"body"`
-			HTMLURL    string `json:"html_url"`
-			State      string `json:"state"`
+			Number     int       `json:"number"`
+			Title      string    `json:"title"`
+			Body       string    `json:"body"`
+			HTMLURL    string    `json:"html_url"`
+			State      string    `json:"state"`
 			CreatedAt  time.Time `json:"created_at"`
 			UpdatedAt  time.Time `json:"updated_at"`
 			Repository struct {
