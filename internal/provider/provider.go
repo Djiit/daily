@@ -28,6 +28,7 @@ type Config struct {
 	Token    string `json:"token,omitempty"`
 	URL      string `json:"url,omitempty"`
 	Enabled  bool   `json:"enabled"`
+	Filter   string `json:"filter,omitempty"` // Additional filter string for customizing queries
 }
 
 // Aggregator collects activities from multiple providers

@@ -123,3 +123,124 @@ func TestProvider_GetActivities_NotConfigured(t *testing.T) {
 		t.Error("Expected error for unconfigured provider, got nil")
 	}
 }
+
+func TestProvider_GetOpenPRs(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         provider.Config
+		expectError    bool
+		expectedErrMsg string
+	}{
+		{
+			name: "configured provider",
+			config: provider.Config{
+				Username: "testuser",
+				Token:    "testtoken",
+				Enabled:  true,
+			},
+			expectError: true, // Will fail with fake credentials but should not panic
+		},
+		{
+			name: "unconfigured provider",
+			config: provider.Config{
+				Username: "",
+				Token:    "",
+				Enabled:  false,
+			},
+			expectError:    true,
+			expectedErrMsg: "GitHub provider not configured",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewProvider(tt.config)
+
+			todos, err := p.GetOpenPRs(context.Background())
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error, got nil")
+				}
+				if tt.expectedErrMsg != "" && err.Error() != tt.expectedErrMsg {
+					t.Errorf("Expected error message '%s', got '%s'", tt.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+				if todos == nil {
+					t.Error("Expected non-nil todos slice")
+				}
+			}
+		})
+	}
+}
+
+func TestProvider_IsConfigured_WithFilter(t *testing.T) {
+	config := provider.Config{
+		Username: "testuser",
+		Token:    "testtoken",
+		Enabled:  true,
+		Filter:   "repo:myorg/myrepo",
+	}
+
+	p := NewProvider(config)
+
+	if !p.IsConfigured() {
+		t.Error("Expected provider to be configured with filter")
+	}
+}
+
+func TestProvider_GetPendingReviews(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         provider.Config
+		expectError    bool
+		expectedErrMsg string
+	}{
+		{
+			name: "configured provider",
+			config: provider.Config{
+				Username: "testuser",
+				Token:    "testtoken",
+				Enabled:  true,
+			},
+			expectError: true, // Will fail with fake credentials but should not panic
+		},
+		{
+			name: "unconfigured provider",
+			config: provider.Config{
+				Username: "",
+				Token:    "",
+				Enabled:  false,
+			},
+			expectError:    true,
+			expectedErrMsg: "GitHub provider not configured",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewProvider(tt.config)
+
+			todos, err := p.GetPendingReviews(context.Background())
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error, got nil")
+				}
+				if tt.expectedErrMsg != "" && err.Error() != tt.expectedErrMsg {
+					t.Errorf("Expected error message '%s', got '%s'", tt.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+				if todos == nil {
+					t.Error("Expected non-nil todos slice")
+				}
+			}
+		})
+	}
+}

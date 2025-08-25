@@ -14,6 +14,7 @@ Daily is a Go CLI tool that aggregates work activities from multiple providers (
 - `./daily --help` - Show CLI help
 - `./daily sum --help` - Show sum command help
 - `./daily config --help` - Show config command help
+- `./daily todo --help` - Show todo command help
 
 ### Testing
 - `go test ./...` - Run all tests
@@ -29,11 +30,12 @@ Daily is a Go CLI tool that aggregates work activities from multiple providers (
 
 ### Core Components
 - **main.go**: Entry point with Cobra CLI setup using charmbracelet/fang
-- **cmd/**: Command implementations (sum, config)
+- **cmd/**: Command implementations (sum, config, todo)
 - **internal/activity/**: Core activity and summary data structures
 - **internal/provider/**: Provider interface and aggregator
 - **internal/config/**: Configuration management (JSON-based, stored in ~/.config/daily/)
 - **internal/output/**: Output formatting (text and JSON)
+- **internal/tui/**: TUI (Terminal User Interface) components using Bubble Tea
 
 ### Provider System
 Each provider implements the `Provider` interface:
@@ -64,9 +66,24 @@ Each provider has `enabled`, `username`, `email`, `token`, and `url` fields as n
 
 ## Key CLI Usage Patterns
 
-- `./daily sum` - Get yesterday's summary (default)
+### Daily Summary
+- `./daily sum` - Get yesterday's summary (default TUI output)
 - `./daily sum -d today` - Get today's summary
 - `./daily sum -d 2024-01-15` - Get specific date summary
-- `./daily sum -v` - Verbose output showing provider status
+- `./daily sum -v` - Verbose output showing provider status (text mode only)
 - `./daily sum -c` - Compact text output
 - `./daily sum -o json` - JSON output format
+- `./daily sum -o text` - Text output format
+- `./daily sum -o tui` - TUI output format (default)
+
+### Todo Management
+- `./daily todo` - Get pending work items (default TUI output)
+- `./daily todo -v` - Verbose output showing provider status (text mode only)
+- `./daily todo -o json` - JSON output format
+- `./daily todo -o text` - Text output format
+- `./daily todo -o tui` - TUI output format (default)
+
+The todo command displays:
+- **Open PRs**: Pull requests created by you that are still open
+- **Pending Reviews**: Pull requests where you are requested as a reviewer
+- **Assigned JIRA Tickets**: JIRA tickets assigned to you that are not done/closed/resolved

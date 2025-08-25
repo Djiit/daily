@@ -74,6 +74,11 @@ func (p *Provider) getCommits(ctx context.Context, from, to time.Time) ([]activi
 
 	query := fmt.Sprintf("author:%s committer-date:%s", p.config.Username, dateQuery)
 
+	// Add filter if configured
+	if p.config.Filter != "" {
+		query = fmt.Sprintf("%s %s", query, p.config.Filter)
+	}
+
 	searchURL := fmt.Sprintf("https://api.github.com/search/commits?q=%s&sort=committer-date&order=desc",
 		url.QueryEscape(query))
 
@@ -135,6 +140,11 @@ func (p *Provider) getPullRequests(ctx context.Context, from, to time.Time) ([]a
 
 	// Include type:pr in the query BEFORE URL encoding
 	query := fmt.Sprintf("author:%s created:%s type:pr", p.config.Username, dateQuery)
+
+	// Add filter if configured
+	if p.config.Filter != "" {
+		query = fmt.Sprintf("%s %s", query, p.config.Filter)
+	}
 
 	searchURL := fmt.Sprintf("https://api.github.com/search/issues?q=%s&sort=created&order=desc",
 		url.QueryEscape(query))
@@ -214,4 +224,128 @@ func (p *Provider) makeRequestWithHeaders(ctx context.Context, url string, extra
 	}
 
 	return json.NewDecoder(resp.Body).Decode(result)
+}
+
+// GetOpenPRs retrieves open pull requests created by the user
+func (p *Provider) GetOpenPRs(ctx context.Context) ([]TodoItem, error) {
+	if !p.IsConfigured() {
+		return nil, fmt.Errorf("GitHub provider not configured")
+	}
+
+	query := fmt.Sprintf("author:%s state:open type:pr", p.config.Username)
+
+	// Add filter if configured
+	if p.config.Filter != "" {
+		query = fmt.Sprintf("%s %s", query, p.config.Filter)
+	}
+
+	searchURL := fmt.Sprintf("https://api.github.com/search/issues?q=%s&sort=updated&order=desc&per_page=50",
+		url.QueryEscape(query))
+
+	var searchResult struct {
+		Items []struct {
+			Number     int       `json:"number"`
+			Title      string    `json:"title"`
+			HTMLURL    string    `json:"html_url"`
+			UpdatedAt  time.Time `json:"updated_at"`
+			Repository struct {
+				Name     string `json:"name"`
+				FullName string `json:"full_name"`
+			} `json:"repository"`
+		} `json:"items"`
+	}
+
+	// Note: GitHub Search API sometimes returns repository data in different fields
+	// We'll need to extract the repo name from the HTML URL if needed
+	if err := p.makeRequest(ctx, searchURL, &searchResult); err != nil {
+		return nil, err
+	}
+
+	var todos []TodoItem
+	for _, item := range searchResult.Items {
+		// Extract repository name from URL if repository field is not available
+		repoName := fmt.Sprintf("PR #%d", item.Number)
+		if item.Repository.FullName != "" {
+			repoName = item.Repository.FullName
+		} else if item.Repository.Name != "" {
+			repoName = item.Repository.Name
+		}
+
+		todos = append(todos, TodoItem{
+			ID:          fmt.Sprintf("github-pr-%d", item.Number),
+			Title:       item.Title,
+			Description: fmt.Sprintf("Open PR in %s", repoName),
+			URL:         item.HTMLURL,
+			UpdatedAt:   item.UpdatedAt,
+			Tags:        []string{repoName, "open"},
+		})
+	}
+
+	return todos, nil
+}
+
+// GetPendingReviews retrieves pull requests where the user is requested as a reviewer
+func (p *Provider) GetPendingReviews(ctx context.Context) ([]TodoItem, error) {
+	if !p.IsConfigured() {
+		return nil, fmt.Errorf("GitHub provider not configured")
+	}
+
+	query := fmt.Sprintf("review-requested:%s state:open type:pr", p.config.Username)
+
+	// Add filter if configured
+	if p.config.Filter != "" {
+		query = fmt.Sprintf("%s %s", query, p.config.Filter)
+	}
+
+	searchURL := fmt.Sprintf("https://api.github.com/search/issues?q=%s&sort=updated&order=desc&per_page=50",
+		url.QueryEscape(query))
+
+	var searchResult struct {
+		Items []struct {
+			Number     int       `json:"number"`
+			Title      string    `json:"title"`
+			HTMLURL    string    `json:"html_url"`
+			UpdatedAt  time.Time `json:"updated_at"`
+			Repository struct {
+				Name     string `json:"name"`
+				FullName string `json:"full_name"`
+			} `json:"repository"`
+		} `json:"items"`
+	}
+
+	if err := p.makeRequest(ctx, searchURL, &searchResult); err != nil {
+		return nil, err
+	}
+
+	var todos []TodoItem
+	for _, item := range searchResult.Items {
+		// Extract repository name from URL if repository field is not available
+		repoName := fmt.Sprintf("PR #%d", item.Number)
+		if item.Repository.FullName != "" {
+			repoName = item.Repository.FullName
+		} else if item.Repository.Name != "" {
+			repoName = item.Repository.Name
+		}
+
+		todos = append(todos, TodoItem{
+			ID:          fmt.Sprintf("github-review-%d", item.Number),
+			Title:       item.Title,
+			Description: fmt.Sprintf("Review requested in %s", repoName),
+			URL:         item.HTMLURL,
+			UpdatedAt:   item.UpdatedAt,
+			Tags:        []string{repoName, "review-requested"},
+		})
+	}
+
+	return todos, nil
+}
+
+// TodoItem represents a single todo item (avoiding import cycles)
+type TodoItem struct {
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	URL         string    `json:"url,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Tags        []string  `json:"tags,omitempty"`
 }

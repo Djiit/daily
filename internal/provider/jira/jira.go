@@ -58,9 +58,16 @@ func (p *Provider) GetActivities(ctx context.Context, from, to time.Time) ([]act
 func (p *Provider) getUpdatedIssues(ctx context.Context, from, to time.Time) ([]activity.Activity, error) {
 	// Build JQL query to find issues updated in the time range
 	// Use proper from and to dates - to is exclusive so it's the next day
-	jql := fmt.Sprintf("assignee = currentUser() AND updated >= \"%s\" AND updated < \"%s\" ORDER BY updated DESC",
+	jql := fmt.Sprintf("assignee = currentUser() AND updated >= \"%s\" AND updated < \"%s\"",
 		from.Format("2006-01-02"),
 		to.Format("2006-01-02"))
+
+	// Add filter if configured
+	if p.config.Filter != "" {
+		jql = fmt.Sprintf("%s AND (%s)", jql, p.config.Filter)
+	}
+
+	jql = fmt.Sprintf("%s ORDER BY updated DESC", jql)
 
 	// URL encode the JQL query
 	searchURL := fmt.Sprintf("%s/rest/api/3/search?jql=%s&fields=key,summary,status,updated,assignee",
@@ -157,4 +164,74 @@ func (p *Provider) makeRequest(ctx context.Context, url string, result any) erro
 	}
 
 	return json.NewDecoder(resp.Body).Decode(result)
+}
+
+// GetAssignedTickets retrieves JIRA tickets assigned to the current user that are not done
+func (p *Provider) GetAssignedTickets(ctx context.Context) ([]TodoItem, error) {
+	if !p.IsConfigured() {
+		return nil, fmt.Errorf("JIRA provider not configured")
+	}
+
+	// JQL query to find tickets assigned to current user that are not in done/closed states
+	jql := "assignee = currentUser() AND status NOT IN (Done, Closed, Resolved)"
+
+	// Add filter if configured
+	if p.config.Filter != "" {
+		jql = fmt.Sprintf("%s AND (%s)", jql, p.config.Filter)
+	}
+
+	jql = fmt.Sprintf("%s ORDER BY updated DESC", jql)
+
+	// URL encode the JQL query
+	searchURL := fmt.Sprintf("%s/rest/api/3/search?jql=%s&fields=key,summary,status,updated,assignee&maxResults=50",
+		strings.TrimSuffix(p.config.URL, "/"),
+		url.QueryEscape(jql))
+
+	var searchResult struct {
+		Issues []struct {
+			Key    string `json:"key"`
+			Fields struct {
+				Summary string `json:"summary"`
+				Updated string `json:"updated"`
+				Status  struct {
+					Name string `json:"name"`
+				} `json:"status"`
+			} `json:"fields"`
+		} `json:"issues"`
+	}
+
+	if err := p.makeRequest(ctx, searchURL, &searchResult); err != nil {
+		return nil, err
+	}
+
+	var todos []TodoItem
+	for _, issue := range searchResult.Issues {
+		// Parse the updated time
+		updatedTime, err := p.parseJIRATime(issue.Fields.Updated)
+		if err != nil {
+			// Use current time if parsing fails
+			updatedTime = time.Now()
+		}
+
+		todos = append(todos, TodoItem{
+			ID:          fmt.Sprintf("jira-%s", issue.Key),
+			Title:       fmt.Sprintf("%s: %s", issue.Key, issue.Fields.Summary),
+			Description: fmt.Sprintf("Status: %s", issue.Fields.Status.Name),
+			URL:         fmt.Sprintf("%s/browse/%s", strings.TrimSuffix(p.config.URL, "/"), issue.Key),
+			UpdatedAt:   updatedTime,
+			Tags:        []string{issue.Key, issue.Fields.Status.Name},
+		})
+	}
+
+	return todos, nil
+}
+
+// TodoItem represents a single todo item (avoiding import cycles)
+type TodoItem struct {
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	URL         string    `json:"url,omitempty"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Tags        []string  `json:"tags,omitempty"`
 }

@@ -13,6 +13,7 @@ import (
 	"daily/internal/provider/github"
 	"daily/internal/provider/jira"
 	"daily/internal/provider/obsidian"
+	"daily/internal/tui"
 )
 
 func SumCmd() *cobra.Command {
@@ -95,7 +96,14 @@ func SumCmd() *cobra.Command {
 			// Format and display results
 			switch outputFormat {
 			case "tui":
-				return output.RunTUI(summary)
+				err := tui.RunTUI(summary)
+				if err != nil {
+					// Fallback to text output if TUI fails
+					formatter := output.NewFormatter()
+					result := formatter.FormatSummary(summary)
+					fmt.Print(result)
+				}
+				return nil
 			case "json":
 				formatter := output.NewFormatter()
 				result := formatter.FormatJSON(summary)
