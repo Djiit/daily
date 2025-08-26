@@ -383,7 +383,7 @@ func runTUIInternal(summary *activity.Summary, force bool) error {
 	} else {
 		glamourTheme = "light"
 	}
-	glamourStyle, err := glamour.NewTermRenderer(glamour.WithStandardStyle(glamourTheme))
+	glamourStyle, err := glamour.NewTermRenderer(glamour.WithStandardStyle(glamourTheme), glamour.WithEmoji())
 	if err != nil {
 		// If glamour fails completely, we'll handle this in the render function
 		glamourStyle = nil
