@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"daily/internal/cache"
 	"daily/internal/config"
 	"daily/internal/output"
 	"daily/internal/provider"
@@ -39,6 +40,51 @@ func SumCmd() *cobra.Command {
 
 			if outputFormat == "text" {
 				fmt.Printf("Gathering activities for %s...\n", targetDate.Format("2006-01-02"))
+			}
+
+			// Initialize cache
+			summaryCache, err := cache.NewCache()
+			if err != nil {
+				return fmt.Errorf("failed to initialize cache: %w", err)
+			}
+
+			// Check cache first for historical dates
+			if summaryCache.ShouldCache(targetDate) {
+				if cachedSummary, err := summaryCache.Get(targetDate); err != nil {
+					if outputFormat == "text" && verbose {
+						fmt.Printf("Cache read error (proceeding with fresh data): %v\n", err)
+					}
+				} else if cachedSummary != nil {
+					if outputFormat == "text" && verbose {
+						fmt.Printf("📋 Using cached summary for %s\n\n", targetDate.Format("2006-01-02"))
+					}
+					// Format and display cached results
+					switch outputFormat {
+					case "tui":
+						err := tui.RunTUI(cachedSummary)
+						if err != nil {
+							// Fallback to text output if TUI fails
+							formatter := output.NewFormatter()
+							result := formatter.FormatSummary(cachedSummary)
+							fmt.Print(result)
+						}
+						return nil
+					case "json":
+						formatter := output.NewFormatter()
+						result := formatter.FormatJSON(cachedSummary)
+						fmt.Print(result)
+					case "text":
+						formatter := output.NewFormatter()
+						var result string
+						if compact {
+							result = formatter.FormatCompactSummary(cachedSummary)
+						} else {
+							result = formatter.FormatSummary(cachedSummary)
+						}
+						fmt.Print(result)
+					}
+					return nil
+				}
 			}
 
 			// Load configuration
@@ -91,6 +137,17 @@ func SumCmd() *cobra.Command {
 
 			if showVerbose {
 				fmt.Printf("\n📊 Retrieved %d total activities\n\n", len(summary.Activities))
+			}
+
+			// Cache the summary if it's for a historical date
+			if summaryCache.ShouldCache(targetDate) {
+				if err := summaryCache.Set(targetDate, summary); err != nil {
+					if outputFormat == "text" && verbose {
+						fmt.Printf("Warning: Failed to cache summary: %v\n", err)
+					}
+				} else if outputFormat == "text" && verbose {
+					fmt.Printf("💾 Cached summary for future use\n\n")
+				}
 			}
 
 			// Format and display results
