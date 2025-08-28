@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Djiit/daily/compare/v0.2.0...v0.2.1) (2025-08-28)
+
+
+### Bug Fixes
+
+* fix tag wf, re-release ([febd5cc](https://github.com/Djiit/daily/commit/febd5cc5a4649de2b8acb0c86d09e35f5755145f))
+
 ## [0.2.0](https://github.com/Djiit/daily/compare/v0.1.0...v0.2.0) (2025-08-28)
 
 
