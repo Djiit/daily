@@ -13,6 +13,17 @@ A Go CLI tool that aggregates work activities from multiple providers (GitHub, J
 
 ## Installation
 
+### Homebrew (Recommended)
+
+```bash
+brew tap djiit/tap
+brew install daily
+```
+
+### GitHub Releases
+
+Download the latest release for your platform from the [releases page](https://github.com/Djiit/daily/releases).
+
 ### From Source
 
 ```bash

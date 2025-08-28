@@ -49,5 +49,5 @@ brews:
     description: "Daily"
     repository:
       owner: Djiit
-      name: tap
+      name: homebrew-tap
     skip_upload: auto
