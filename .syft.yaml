@@ -1,0 +1,4 @@
+source:
+  name: daily
+catalogers:
+  - go

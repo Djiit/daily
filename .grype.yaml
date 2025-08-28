@@ -1,0 +1,5 @@
+name: daily
+
+match:
+  golang:
+    using-cpes: true

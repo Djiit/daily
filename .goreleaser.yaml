@@ -1,0 +1,53 @@
+version: 2
+project_name: daily
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - main: .
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - arm64
+      - amd64
+    binary: daily
+    ignore:
+      - goos: linux
+        goarch: arm64
+    flags:
+      - -tags=release
+    ldflags:
+      - -s -w -X cmd.Version={{.Version}}
+release:
+  prerelease: auto
+  mode: keep-existing
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+changelog:
+  disable: true
+sboms:
+  - artifacts: archive
+upx:
+  - enabled: true
+kos:
+  - repositories:
+      - ghcr.io/djiit/daily
+    tags:
+      - "{{.Version}}"
+      - latest
+    platforms:
+      - linux/amd64
+      - darwin/amd64
+      - darwin/arm64
+    bare: true
+brews:
+  - homepage: "https://github.com/Djiit/daily"
+    description: "Daily"
+    repository:
+      owner: Djiit
+      name: tap
+    skip_upload: auto
