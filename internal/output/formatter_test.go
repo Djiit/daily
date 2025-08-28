@@ -46,8 +46,7 @@ func TestFormatter_FormatSummary(t *testing.T) {
 	result := formatter.FormatSummary(summary)
 
 	// Strip ANSI codes for testing
-	plainResult := lipgloss.NewStyle().Render(result)
-	plainResult = strings.ReplaceAll(plainResult, "\x1b[", "")
+	_ = lipgloss.NewStyle().Render(result)
 
 	// Check that the output contains expected elements
 	if !strings.Contains(result, "Daily Summary") {

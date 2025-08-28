@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss/v2"
 
 	"daily/internal/tui/types"
@@ -14,7 +14,6 @@ import (
 // TodoModel represents the state of the todo TUI
 type TodoModel struct {
 	todoItems    types.TodoItems
-	currentView  int // 0: all, 1: open PRs, 2: pending reviews, 3: assigned tickets
 	selectedItem int
 	width        int
 	height       int

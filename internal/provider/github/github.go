@@ -217,7 +217,7 @@ func (p *Provider) makeRequestWithHeaders(ctx context.Context, url string, extra
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GitHub API request failed with status %d", resp.StatusCode)

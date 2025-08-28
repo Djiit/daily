@@ -11,7 +11,7 @@ run = "go run main.go"
 
 [tasks.lint]
 description = "Format code and run static analysis"
-run = "go fmt ./... && go vet ./..."
+run = "go fmt ./... && go vet ./... && golangci-lint run"
 
 [tasks.test]
 description = "Test the daily CLI"

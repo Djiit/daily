@@ -157,7 +157,7 @@ func (p *Provider) makeRequest(ctx context.Context, url string, result any) erro
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("JIRA API request failed with status %d", resp.StatusCode)

@@ -33,7 +33,7 @@ func TestConfig_SaveAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Override the config path for testing
 	originalConfigPathFunc := configPathFunc
@@ -100,7 +100,7 @@ func TestLoad_CreatesDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Override the config path for testing
 	originalConfigPathFunc := configPathFunc
