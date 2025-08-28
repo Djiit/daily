@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v7
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run Unit Tests
+        run: |
+          go test -v -cover -coverprofile=coverage.out -json -timeout 300s -tags ci ./... | tee report.out
+          go install github.com/jstemmer/go-junit-report/v2@latest
+          go-junit-report -set-exit-code > tests-report.xml < report.out
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          path: tests-report.xml
