@@ -10,6 +10,7 @@ import (
 	"daily/internal/output"
 	"daily/internal/provider/github"
 	"daily/internal/provider/jira"
+	"daily/internal/provider/obsidian"
 )
 
 func TodoCmd() *cobra.Command {
@@ -90,6 +91,31 @@ func TodoCmd() *cobra.Command {
 				}
 			} else if showVerbose {
 				fmt.Println("✗ JIRA provider disabled")
+			}
+
+			// Get Obsidian todos
+			if cfg.Obsidian.Enabled {
+				if showVerbose {
+					fmt.Println("✓ Obsidian provider enabled")
+				}
+				obsidianProvider := obsidian.NewProvider(cfg.Obsidian)
+				if obsidianProvider.IsConfigured() {
+					obsidianTodos, err := getObsidianTodos(ctx, obsidianProvider)
+					if err != nil {
+						if showVerbose {
+							fmt.Printf("❌ Obsidian todos failed: %v\n", err)
+						}
+					} else {
+						todoItems.Obsidian = obsidianTodos
+						if showVerbose {
+							fmt.Printf("✅ Obsidian returned %d tasks\n", len(obsidianTodos.Tasks))
+						}
+					}
+				} else if showVerbose {
+					fmt.Println("⚠️  Obsidian provider not configured")
+				}
+			} else if showVerbose {
+				fmt.Println("✗ Obsidian provider disabled")
 			}
 
 			if showVerbose {
@@ -178,6 +204,31 @@ func getJIRATodos(ctx context.Context, provider *jira.Provider) (output.JIRATodo
 	todos.AssignedTickets = make([]output.TodoItem, len(assignedTickets))
 	for i, item := range assignedTickets {
 		todos.AssignedTickets[i] = output.TodoItem{
+			ID:          item.ID,
+			Title:       item.Title,
+			Description: item.Description,
+			URL:         item.URL,
+			UpdatedAt:   item.UpdatedAt,
+			Tags:        item.Tags,
+		}
+	}
+
+	return todos, nil
+}
+
+func getObsidianTodos(ctx context.Context, provider *obsidian.Provider) (output.ObsidianTodos, error) {
+	var todos output.ObsidianTodos
+
+	// Get tasks from Obsidian vault
+	tasks, err := provider.GetTasks(ctx)
+	if err != nil {
+		return todos, fmt.Errorf("failed to get Obsidian tasks: %w", err)
+	}
+
+	// Convert from obsidian.TodoItem to output.TodoItem
+	todos.Tasks = make([]output.TodoItem, len(tasks))
+	for i, item := range tasks {
+		todos.Tasks[i] = output.TodoItem{
 			ID:          item.ID,
 			Title:       item.Title,
 			Description: item.Description,

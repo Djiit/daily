@@ -3,12 +3,10 @@ package tui
 import (
 	"fmt"
 	"io"
-	"math"
 	"sort"
 	"strings"
 	"time"
 
-	catppuccin "github.com/catppuccin/go"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
@@ -108,38 +106,29 @@ func (m *summaryModel) updateLeftViewport() {
 }
 
 func (m summaryModel) View() string {
+	// Check if terminal is too small
+	if !IsTerminalSizeAdequate(m.windowWidth, m.windowHeight) {
+		return RenderTerminalTooSmallMessage(m.styles, m.windowWidth, m.windowHeight)
+	}
+
 	if len(m.activities) == 0 {
 		return m.styles.Header.Render("No activities found for this date.") +
 			"\n\nPress q to quit"
 	}
 
 	// Calculate panel dimensions
-	leftWidth := int(math.Floor(float64(m.windowWidth) * 0.4)) // 40% for left panel
-	rightWidth := m.windowWidth - leftWidth - 3                // Remaining for right panel (minus border)
+	dimensions := CalculatePanelDimensions(m.windowWidth)
+	if dimensions.UseSingle {
+		return m.renderSinglePanelView()
+	}
 
 	// Header
 	title := fmt.Sprintf("📊 Daily Summary for %s", m.summary.Date.Format("January 2, 2006"))
-
-	// Use appropriate Catppuccin colors based on theme
-	var headerColor string
-	if isDarkMode() {
-		headerColor = catppuccin.Mocha.Mauve().Hex
-	} else {
-		headerColor = catppuccin.Latte.Mauve().Hex
-	}
-
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(headerColor)).
-		Width(m.windowWidth).
-		Align(lipgloss.Center).
-		MarginBottom(1)
-
-	header := headerStyle.Render(title)
+	header := RenderHeader(title, m.windowWidth)
 
 	// Create left and right panels
-	leftPanel := m.renderLeftPanel(leftWidth)
-	rightPanel := m.renderRightPanel(rightWidth)
+	leftPanel := m.renderLeftPanel(dimensions.LeftWidth)
+	rightPanel := m.renderRightPanel(dimensions.RightWidth)
 
 	// Combine panels
 	return lipgloss.JoinVertical(lipgloss.Top,
@@ -149,40 +138,16 @@ func (m summaryModel) View() string {
 }
 
 func (m summaryModel) renderLeftPanel(width int) string {
-	// Use appropriate Catppuccin colors based on theme
-	var borderColor string
-	if isDarkMode() {
-		borderColor = catppuccin.Mocha.Surface2().Hex
-	} else {
-		borderColor = catppuccin.Latte.Surface2().Hex
-	}
-
-	// Left panel style with border
-	leftStyle := lipgloss.NewStyle().
-		Width(width).
-		Height(m.leftViewport.height).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(borderColor)).
-		Padding(1)
+	// Create bordered panel with theme-appropriate colors
+	_, borderColor, _, _, _, _ := GetThemeColors()
+	leftStyle := CreateBorderedPanel(width, m.leftViewport.height, borderColor)
 
 	var content strings.Builder
 
 	// Navigation help
 	helpText := "↑/↓ j/k: Navigate • Enter: Open URL • q: Quit"
-
-	// Use appropriate Catppuccin colors based on theme
-	var helpColor string
-	if isDarkMode() {
-		helpColor = catppuccin.Mocha.Subtext1().Hex
-	} else {
-		helpColor = catppuccin.Latte.Subtext1().Hex
-	}
-
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(helpColor)).
-		Italic(true).
-		Width(width - 4)
-	content.WriteString(helpStyle.Render(helpText))
+	adjustedWidth := max(20, width) // Same adjustment as in CreateBorderedPanel
+	content.WriteString(RenderHelpText(helpText, adjustedWidth-4))
 	content.WriteString("\n\n")
 
 	// Activities list
@@ -198,14 +163,8 @@ func (m summaryModel) renderLeftPanel(width int) string {
 		typeIcon := getTypeIcon(act.Type)
 
 		// Truncate title to fit width
-		maxTitleWidth := max(5, width-15) // Account for time, icons, and padding, minimum 5 chars
-		title := act.Title
-		if len(title) > maxTitleWidth && maxTitleWidth > 3 {
-			title = title[:maxTitleWidth-3] + "..."
-		} else if len(title) > maxTitleWidth {
-			// If maxTitleWidth is too small even for "...", just truncate
-			title = title[:max(1, maxTitleWidth)]
-		}
+		maxTitleWidth := max(5, adjustedWidth-15) // Account for time, icons, and padding, minimum 5 chars
+		title := TruncateText(act.Title, maxTitleWidth)
 
 		var line strings.Builder
 		line.WriteString(fmt.Sprintf("%s %s %s %s", timeStr, platformIcon, typeIcon, title))
@@ -215,70 +174,93 @@ func (m summaryModel) renderLeftPanel(width int) string {
 		}
 
 		// Apply selection styling
-		if isSelected {
-			var selectedFg, selectedBg string
-			if isDarkMode() {
-				selectedFg = catppuccin.Mocha.Base().Hex
-				selectedBg = catppuccin.Mocha.Blue().Hex
-			} else {
-				selectedFg = catppuccin.Latte.Base().Hex
-				selectedBg = catppuccin.Latte.Blue().Hex
-			}
-
-			style := lipgloss.NewStyle().
-				Foreground(lipgloss.Color(selectedFg)).
-				Background(lipgloss.Color(selectedBg)).
-				Bold(true).
-				Width(width - 4)
-			content.WriteString(style.Render("> " + line.String()))
-		} else {
-			style := lipgloss.NewStyle().Width(width - 4)
-			content.WriteString(style.Render("  " + line.String()))
-		}
+		content.WriteString(ApplySelectionStyle(line.String(), isSelected, adjustedWidth-4))
 
 		content.WriteString("\n")
 	}
 
 	// Scroll indicator
 	if len(m.activities) > m.leftViewport.height-4 {
-		current := m.cursor + 1
-		total := len(m.activities)
-		scrollInfo := fmt.Sprintf("[%d/%d]", current, total)
-
-		var scrollColor string
-		if isDarkMode() {
-			scrollColor = catppuccin.Mocha.Subtext1().Hex
-		} else {
-			scrollColor = catppuccin.Latte.Subtext1().Hex
-		}
-
-		scrollStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(scrollColor)).
-			Align(lipgloss.Right).
-			Width(width - 4)
 		content.WriteString("\n")
-		content.WriteString(scrollStyle.Render(scrollInfo))
+		content.WriteString(RenderScrollIndicator(m.cursor+1, len(m.activities), adjustedWidth-4))
 	}
 
 	return leftStyle.Render(content.String())
 }
 
-func (m summaryModel) renderRightPanel(width int) string {
-	// Use appropriate Catppuccin colors based on theme
-	var borderColor string
-	if isDarkMode() {
-		borderColor = catppuccin.Mocha.Surface2().Hex
-	} else {
-		borderColor = catppuccin.Latte.Surface2().Hex
+// renderSinglePanelView renders a simplified single-panel view for narrow terminals
+func (m summaryModel) renderSinglePanelView() string {
+	var content strings.Builder
+
+	// Header
+	title := fmt.Sprintf("📊 Daily Summary for %s", m.summary.Date.Format("January 2, 2006"))
+	content.WriteString(RenderHeader(title, m.windowWidth))
+	content.WriteString("\n")
+
+	// Navigation help
+	helpText := "↑/↓ j/k: Navigate • Enter: Open URL • q: Quit"
+	content.WriteString(RenderHelpText(helpText, m.windowWidth))
+	content.WriteString("\n\n")
+
+	// Activities list (simplified)
+	availableHeight := m.windowHeight - 6 // Account for header and help
+	start := max(0, m.cursor-availableHeight/2)
+	end := min(len(m.activities), start+availableHeight)
+
+	// Adjust start if end reached the limit
+	if end == len(m.activities) && end-start < availableHeight {
+		start = max(0, end-availableHeight)
 	}
 
-	// Right panel style with border
-	rightStyle := lipgloss.NewStyle().
-		Width(width).
-		Height(m.rightViewport.height).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(borderColor)).
-		Padding(1)
+	for i := start; i < end; i++ {
+		act := m.activities[i]
+		isSelected := i == m.cursor
+
+		// Simple activity line
+		timeStr := act.Timestamp.Format("15:04")
+		platformIcon := getPlatformIcon(act.Platform)
+		typeIcon := getTypeIcon(act.Type)
+
+		// Truncate title to fit
+		maxTitleWidth := max(5, m.windowWidth-15)
+		title := TruncateText(act.Title, maxTitleWidth)
+
+		line := fmt.Sprintf("%s %s %s %s", timeStr, platformIcon, typeIcon, title)
+		if act.URL != "" {
+			line += " 🔗"
+		}
+
+		content.WriteString(ApplySelectionStyle(line, isSelected, m.windowWidth))
+		content.WriteString("\n")
+	}
+
+	// Show current item details if space available
+	if m.cursor < len(m.activities) && m.windowHeight > 15 {
+		act := m.activities[m.cursor]
+		content.WriteString("\n")
+		if act.Description != "" {
+			desc := TruncateText(act.Description, m.windowWidth-4)
+			_, _, _, _, _, scrollColor := GetThemeColors() // Reuse scroll color for description
+			descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(scrollColor)).Italic(true)
+			content.WriteString(descStyle.Render(desc))
+			content.WriteString("\n")
+		}
+	}
+
+	// Scroll indicator
+	if len(m.activities) > availableHeight {
+		content.WriteString("\n")
+		content.WriteString(RenderScrollIndicator(m.cursor+1, len(m.activities), m.windowWidth))
+	}
+
+	return content.String()
+}
+
+func (m summaryModel) renderRightPanel(width int) string {
+	// Create bordered panel with theme-appropriate colors
+	_, borderColor, _, _, _, _ := GetThemeColors()
+	rightStyle := CreateBorderedPanel(width, m.rightViewport.height, borderColor)
+	adjustedWidth := max(30, width) // Same adjustment as in CreateBorderedPanel
 
 	if m.cursor >= len(m.activities) {
 		return rightStyle.Render("Select an activity to view details")
@@ -303,7 +285,7 @@ func (m summaryModel) renderRightPanel(width int) string {
 
 	// Wrap content to fit width
 	contentStyle := lipgloss.NewStyle().
-		Width(width - 4) // Account for padding and border
+		Width(max(10, adjustedWidth-4)) // Account for padding and border
 
 	return rightStyle.Render(contentStyle.Render(rendered))
 }

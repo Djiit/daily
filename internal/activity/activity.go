@@ -13,6 +13,7 @@ const (
 	ActivityTypeIssue      ActivityType = "issue"
 	ActivityTypeJiraTicket ActivityType = "jira_ticket"
 	ActivityTypeNote       ActivityType = "note"
+	ActivityTypeTask       ActivityType = "task"
 )
 
 // Activity represents a single work activity

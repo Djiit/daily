@@ -360,7 +360,7 @@ func (f *Formatter) FormatTodo(todoItems TodoItems) string {
 	output.WriteString(f.titleStyle.Render(title))
 	output.WriteString("\n")
 
-	totalItems := len(todoItems.GitHub.OpenPRs) + len(todoItems.GitHub.PendingReviews) + len(todoItems.JIRA.AssignedTickets)
+	totalItems := len(todoItems.GitHub.OpenPRs) + len(todoItems.GitHub.PendingReviews) + len(todoItems.JIRA.AssignedTickets) + len(todoItems.Obsidian.Tasks)
 	if totalItems == 0 {
 		output.WriteString(f.headerStyle.Render("No pending items found."))
 		output.WriteString("\n")
@@ -384,6 +384,11 @@ func (f *Formatter) FormatTodo(todoItems TodoItems) string {
 	// JIRA Assigned Tickets
 	if len(todoItems.JIRA.AssignedTickets) > 0 {
 		output.WriteString(f.formatTodoSection("🎫 Assigned Tickets", todoItems.JIRA.AssignedTickets))
+	}
+
+	// Obsidian Tasks
+	if len(todoItems.Obsidian.Tasks) > 0 {
+		output.WriteString(f.formatTodoSection("📝 Obsidian Tasks", todoItems.Obsidian.Tasks))
 	}
 
 	return output.String()
@@ -467,11 +472,15 @@ func (f *Formatter) FormatTodoJSON(todoItems TodoItems) string {
 		JIRA struct {
 			AssignedTickets []TodoItem `json:"assigned_tickets"`
 		} `json:"jira"`
+		Obsidian struct {
+			Tasks []TodoItem `json:"tasks"`
+		} `json:"obsidian"`
 		Summary struct {
 			Total           int `json:"total"`
 			OpenPRs         int `json:"open_prs"`
 			PendingReviews  int `json:"pending_reviews"`
 			AssignedTickets int `json:"assigned_tickets"`
+			ObsidianTasks   int `json:"obsidian_tasks"`
 		} `json:"summary"`
 	}{}
 
@@ -479,12 +488,14 @@ func (f *Formatter) FormatTodoJSON(todoItems TodoItems) string {
 	jsonOutput.GitHub.OpenPRs = sortTodoItems(todoItems.GitHub.OpenPRs)
 	jsonOutput.GitHub.PendingReviews = sortTodoItems(todoItems.GitHub.PendingReviews)
 	jsonOutput.JIRA.AssignedTickets = sortTodoItems(todoItems.JIRA.AssignedTickets)
+	jsonOutput.Obsidian.Tasks = sortTodoItems(todoItems.Obsidian.Tasks)
 
 	// Calculate summary
 	jsonOutput.Summary.OpenPRs = len(todoItems.GitHub.OpenPRs)
 	jsonOutput.Summary.PendingReviews = len(todoItems.GitHub.PendingReviews)
 	jsonOutput.Summary.AssignedTickets = len(todoItems.JIRA.AssignedTickets)
-	jsonOutput.Summary.Total = jsonOutput.Summary.OpenPRs + jsonOutput.Summary.PendingReviews + jsonOutput.Summary.AssignedTickets
+	jsonOutput.Summary.ObsidianTasks = len(todoItems.Obsidian.Tasks)
+	jsonOutput.Summary.Total = jsonOutput.Summary.OpenPRs + jsonOutput.Summary.PendingReviews + jsonOutput.Summary.AssignedTickets + jsonOutput.Summary.ObsidianTasks
 
 	// Marshal to JSON with proper indentation
 	jsonBytes, err := json.MarshalIndent(jsonOutput, "", "  ")
@@ -527,6 +538,9 @@ func (f *Formatter) convertToTUITypes(todoItems TodoItems) types.TodoItems {
 		JIRA: types.JIRATodos{
 			AssignedTickets: convertTodoItems(todoItems.JIRA.AssignedTickets),
 		},
+		Obsidian: types.ObsidianTodos{
+			Tasks: convertTodoItems(todoItems.Obsidian.Tasks),
+		},
 	}
 }
 
@@ -542,8 +556,9 @@ type TodoItem struct {
 
 // TodoItems represents all pending work items
 type TodoItems struct {
-	GitHub GitHubTodos `json:"github"`
-	JIRA   JIRATodos   `json:"jira"`
+	GitHub   GitHubTodos   `json:"github"`
+	JIRA     JIRATodos     `json:"jira"`
+	Obsidian ObsidianTodos `json:"obsidian"`
 }
 
 // GitHubTodos represents pending GitHub work items
@@ -555,4 +570,9 @@ type GitHubTodos struct {
 // JIRATodos represents pending JIRA work items
 type JIRATodos struct {
 	AssignedTickets []TodoItem `json:"assigned_tickets"`
+}
+
+// ObsidianTodos represents pending Obsidian work items
+type ObsidianTodos struct {
+	Tasks []TodoItem `json:"tasks"`
 }

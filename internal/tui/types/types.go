@@ -14,8 +14,9 @@ type TodoItem struct {
 
 // TodoItems represents all pending work items
 type TodoItems struct {
-	GitHub GitHubTodos `json:"github"`
-	JIRA   JIRATodos   `json:"jira"`
+	GitHub   GitHubTodos   `json:"github"`
+	JIRA     JIRATodos     `json:"jira"`
+	Obsidian ObsidianTodos `json:"obsidian"`
 }
 
 // GitHubTodos represents pending GitHub work items
@@ -27,4 +28,9 @@ type GitHubTodos struct {
 // JIRATodos represents pending JIRA work items
 type JIRATodos struct {
 	AssignedTickets []TodoItem `json:"assigned_tickets"`
+}
+
+// ObsidianTodos represents pending Obsidian work items
+type ObsidianTodos struct {
+	Tasks []TodoItem `json:"tasks"`
 }

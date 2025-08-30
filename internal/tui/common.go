@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
@@ -170,6 +171,17 @@ func IsTerminalCapable() bool {
 	return isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
 }
 
+// MinTerminalSize defines minimum required terminal dimensions
+const (
+	MinTerminalWidth  = 80
+	MinTerminalHeight = 20
+)
+
+// IsTerminalSizeAdequate checks if terminal is large enough for TUI
+func IsTerminalSizeAdequate(width, height int) bool {
+	return width >= MinTerminalWidth && height >= MinTerminalHeight
+}
+
 // OpenURL opens the given URL in the default browser
 func OpenURL(url string) error {
 	var cmd string
@@ -235,4 +247,138 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// PanelDimensions holds calculated panel dimensions
+type PanelDimensions struct {
+	LeftWidth  int
+	RightWidth int
+	UseSingle  bool
+}
+
+// CalculatePanelDimensions calculates optimal panel dimensions for dual-panel layout
+func CalculatePanelDimensions(windowWidth int) PanelDimensions {
+	minLeftWidth := 30  // Minimum width for left panel
+	minRightWidth := 40 // Minimum width for right panel
+
+	leftWidth := int(float64(windowWidth) * 0.4) // 40% for left panel
+	if leftWidth < minLeftWidth {
+		leftWidth = minLeftWidth
+	}
+
+	rightWidth := windowWidth - leftWidth - 3 // Remaining for right panel (minus border)
+	if rightWidth < minRightWidth {
+		rightWidth = minRightWidth
+		leftWidth = windowWidth - rightWidth - 3
+		if leftWidth < minLeftWidth {
+			// If we can't fit both panels properly, use single panel
+			return PanelDimensions{UseSingle: true}
+		}
+	}
+
+	return PanelDimensions{
+		LeftWidth:  leftWidth,
+		RightWidth: rightWidth,
+		UseSingle:  false,
+	}
+}
+
+// RenderTerminalTooSmallMessage renders the standard "terminal too small" message
+func RenderTerminalTooSmallMessage(styles *CommonStyles, width, height int) string {
+	return styles.Header.Render("Terminal too small") +
+		"\n\nMinimum size: 80x20" +
+		fmt.Sprintf("\nCurrent size: %dx%d", width, height) +
+		"\n\nPress q to quit"
+}
+
+// CreateBorderedPanel creates a panel with consistent border styling
+func CreateBorderedPanel(width, height int, borderColor string) lipgloss.Style {
+	adjustedWidth := max(20, width)   // Ensure minimum width for border
+	adjustedHeight := max(10, height) // Ensure minimum height
+
+	return lipgloss.NewStyle().
+		Width(adjustedWidth).
+		Height(adjustedHeight).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(borderColor)).
+		Padding(1)
+}
+
+// GetThemeColors returns appropriate colors for current theme
+func GetThemeColors() (headerColor, borderColor, helpColor, selectedFg, selectedBg, scrollColor string) {
+	if isDarkMode() {
+		mocha := catppuccin.Mocha
+		return mocha.Mauve().Hex, mocha.Surface2().Hex, mocha.Subtext1().Hex,
+			mocha.Base().Hex, mocha.Blue().Hex, mocha.Subtext1().Hex
+	}
+
+	latte := catppuccin.Latte
+	return latte.Mauve().Hex, latte.Surface2().Hex, latte.Subtext1().Hex,
+		latte.Base().Hex, latte.Blue().Hex, latte.Subtext1().Hex
+}
+
+// RenderHeader renders a standard TUI header with theme-appropriate styling
+func RenderHeader(title string, windowWidth int) string {
+	headerColor, _, _, _, _, _ := GetThemeColors()
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(headerColor)).
+		Width(windowWidth).
+		Align(lipgloss.Center).
+		MarginBottom(1)
+
+	return headerStyle.Render(title)
+}
+
+// RenderHelpText renders navigation help text with consistent styling
+func RenderHelpText(helpText string, maxWidth int) string {
+	_, _, helpColor, _, _, _ := GetThemeColors()
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(helpColor)).
+		Italic(true).
+		Width(max(10, maxWidth))
+
+	return helpStyle.Render(helpText)
+}
+
+// RenderScrollIndicator renders a scroll position indicator
+func RenderScrollIndicator(current, total, maxWidth int) string {
+	_, _, _, _, _, scrollColor := GetThemeColors()
+	scrollInfo := fmt.Sprintf("[%d/%d]", current, total)
+
+	scrollStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(scrollColor)).
+		Align(lipgloss.Right).
+		Width(max(10, maxWidth))
+
+	return scrollStyle.Render(scrollInfo)
+}
+
+// ApplySelectionStyle applies selection styling to text
+func ApplySelectionStyle(text string, isSelected bool, maxWidth int) string {
+	if isSelected {
+		_, _, _, selectedFg, selectedBg, _ := GetThemeColors()
+		style := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(selectedFg)).
+			Background(lipgloss.Color(selectedBg)).
+			Bold(true).
+			Width(max(10, maxWidth))
+		return style.Render("> " + text)
+	}
+
+	style := lipgloss.NewStyle().Width(max(10, maxWidth))
+	return style.Render("  " + text)
+}
+
+// TruncateText truncates text to fit within maxWidth, adding ellipsis if needed
+func TruncateText(text string, maxWidth int) string {
+	if len(text) <= maxWidth {
+		return text
+	}
+
+	if maxWidth <= 3 {
+		return text[:max(1, maxWidth)]
+	}
+
+	return text[:maxWidth-3] + "..."
 }
