@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/Djiit/daily/compare/v0.2.1...v0.2.2) (2025-08-30)
+
+
+### Bug Fixes
+
+* ensure osbidian tasks are parsed ([d2f6e95](https://github.com/Djiit/daily/commit/d2f6e952eff3e3c98e70f66d35599282bd07c4c5))
+
 ## [0.2.1](https://github.com/Djiit/daily/compare/v0.2.0...v0.2.1) (2025-08-28)
 
 
