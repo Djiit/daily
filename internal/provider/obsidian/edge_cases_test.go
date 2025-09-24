@@ -233,10 +233,10 @@ func TestProvider_EdgeCases_LargeVault(t *testing.T) {
 
 	for i := 0; i < numFiles; i++ {
 		filePath := filepath.Join(tempDir, fmt.Sprintf("file%03d.md", i))
-		
+
 		var content strings.Builder
 		content.WriteString(fmt.Sprintf("# File %d\n\n", i))
-		
+
 		for j := 0; j < tasksPerFile; j++ {
 			if j%3 == 0 {
 				content.WriteString(fmt.Sprintf("- [ ] Todo task %d-%d\n", i, j))

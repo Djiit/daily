@@ -544,6 +544,225 @@ func (f *Formatter) convertToTUITypes(todoItems TodoItems) types.TodoItems {
 	}
 }
 
+// FormatReview formats review items for text output
+func (f *Formatter) FormatReview(reviewItems ReviewItems) string {
+	var output strings.Builder
+
+	// Title
+	title := "👁️ Review Requests"
+	output.WriteString(f.titleStyle.Render(title))
+	output.WriteString("\n")
+
+	totalItems := len(reviewItems.GitHub.UserRequests) + len(reviewItems.GitHub.TeamRequests)
+	if totalItems == 0 {
+		output.WriteString(f.headerStyle.Render("No review requests found."))
+		output.WriteString("\n")
+		return output.String()
+	}
+
+	stats := fmt.Sprintf("Found %d PRs awaiting review", totalItems)
+	output.WriteString(f.headerStyle.Render(stats))
+	output.WriteString("\n\n")
+
+	// User Review Requests
+	if len(reviewItems.GitHub.UserRequests) > 0 {
+		output.WriteString(f.formatReviewSection("🫵 Direct Review Requests", reviewItems.GitHub.UserRequests))
+	}
+
+	// Team Review Requests
+	if len(reviewItems.GitHub.TeamRequests) > 0 {
+		output.WriteString(f.formatReviewSection("👥 Team Review Requests", reviewItems.GitHub.TeamRequests))
+	}
+
+	return output.String()
+}
+
+func (f *Formatter) formatReviewSection(sectionTitle string, items []ReviewItem) string {
+	var section strings.Builder
+
+	// Section header
+	section.WriteString(f.platformStyle.Render(fmt.Sprintf("%s (%d)", sectionTitle, len(items))))
+	section.WriteString("\n")
+
+	// Styled border
+	border := strings.Repeat("─", 60)
+	section.WriteString(f.borderStyle.Render(border))
+	section.WriteString("\n")
+
+	// Sort items by updated time (most recent first)
+	sortedItems := make([]ReviewItem, len(items))
+	copy(sortedItems, items)
+	sort.Slice(sortedItems, func(i, j int) bool {
+		return sortedItems[i].TodoItem.UpdatedAt.After(sortedItems[j].TodoItem.UpdatedAt)
+	})
+
+	for _, item := range sortedItems {
+		section.WriteString(f.formatReviewItem(item))
+	}
+
+	section.WriteString("\n")
+	return section.String()
+}
+
+func (f *Formatter) formatReviewItem(item ReviewItem) string {
+	var itemContent strings.Builder
+
+	// Updated time and title
+	timeStr := f.timeStyle.Render(item.TodoItem.UpdatedAt.Format("Jan 2 15:04"))
+
+	// CI status indicator
+	ciIcon := f.getCIStatusIcon(item.CIStatus.State)
+
+	mainLine := fmt.Sprintf("%s %s %s", timeStr, ciIcon, item.TodoItem.Title)
+	itemContent.WriteString(mainLine)
+	itemContent.WriteString("\n")
+
+	if item.TodoItem.Description != "" {
+		description := f.descriptionStyle.Render(item.TodoItem.Description)
+		itemContent.WriteString(description)
+		itemContent.WriteString("\n")
+	}
+
+	// PR details
+	if item.PRDetails.ChangedFiles > 0 {
+		prStats := fmt.Sprintf("📊 +%d -%d files: %d",
+			item.PRDetails.Additions, item.PRDetails.Deletions, item.PRDetails.ChangedFiles)
+		prStatsStyled := f.descriptionStyle.Render(prStats)
+		itemContent.WriteString(prStatsStyled)
+		itemContent.WriteString("\n")
+	}
+
+	// CI status details
+	if item.CIStatus.TotalCount > 0 {
+		ciDetails := fmt.Sprintf("🔍 CI: %s (%d checks)", item.CIStatus.State, item.CIStatus.TotalCount)
+		ciDetailsStyled := f.descriptionStyle.Render(ciDetails)
+		itemContent.WriteString(ciDetailsStyled)
+		itemContent.WriteString("\n")
+	}
+
+	if item.TodoItem.URL != "" {
+		url := f.urlStyle.Render("🔗 " + item.TodoItem.URL)
+		itemContent.WriteString(url)
+		itemContent.WriteString("\n")
+	}
+
+	if len(item.TodoItem.Tags) > 0 {
+		tags := f.tagStyle.Render("🏷️  " + strings.Join(item.TodoItem.Tags, ", "))
+		itemContent.WriteString(tags)
+		itemContent.WriteString("\n")
+	}
+
+	// Wrap the entire item in the activity style
+	return f.activityStyle.Render(itemContent.String())
+}
+
+func (f *Formatter) getCIStatusIcon(state string) string {
+	switch state {
+	case "success":
+		return "✅"
+	case "failure":
+		return "❌"
+	case "pending":
+		return "🟡"
+	default:
+		return "⚪"
+	}
+}
+
+// FormatReviewJSON formats review items for JSON output
+func (f *Formatter) FormatReviewJSON(reviewItems ReviewItems) string {
+	// Sort all items by updated time for consistent output
+	sortReviewItems := func(items []ReviewItem) []ReviewItem {
+		sorted := make([]ReviewItem, len(items))
+		copy(sorted, items)
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].TodoItem.UpdatedAt.After(sorted[j].TodoItem.UpdatedAt)
+		})
+		return sorted
+	}
+
+	jsonOutput := struct {
+		GitHub struct {
+			UserRequests []ReviewItem `json:"user_requests"`
+			TeamRequests []ReviewItem `json:"team_requests"`
+		} `json:"github"`
+		Summary struct {
+			Total        int `json:"total"`
+			UserRequests int `json:"user_requests"`
+			TeamRequests int `json:"team_requests"`
+		} `json:"summary"`
+	}{}
+
+	// Sort and assign items
+	jsonOutput.GitHub.UserRequests = sortReviewItems(reviewItems.GitHub.UserRequests)
+	jsonOutput.GitHub.TeamRequests = sortReviewItems(reviewItems.GitHub.TeamRequests)
+
+	// Calculate summary
+	jsonOutput.Summary.UserRequests = len(reviewItems.GitHub.UserRequests)
+	jsonOutput.Summary.TeamRequests = len(reviewItems.GitHub.TeamRequests)
+	jsonOutput.Summary.Total = jsonOutput.Summary.UserRequests + jsonOutput.Summary.TeamRequests
+
+	// Marshal to JSON with proper indentation
+	jsonBytes, err := json.MarshalIndent(jsonOutput, "", "  ")
+	if err != nil {
+		return fmt.Sprintf(`{"error": "Failed to marshal JSON: %s"}`, err.Error())
+	}
+
+	return string(jsonBytes) + "\n"
+}
+
+// FormatReviewTUI launches an interactive TUI for browsing review items
+func (f *Formatter) FormatReviewTUI(reviewItems ReviewItems) error {
+	// Convert output.ReviewItems to types.ReviewItems
+	typesReviewItems := types.ReviewItems{
+		GitHub: types.GitHubReviews{
+			UserRequests: convertReviewItems(reviewItems.GitHub.UserRequests),
+			TeamRequests: convertReviewItems(reviewItems.GitHub.TeamRequests),
+		},
+	}
+	return tui.RunReviewsTUI(typesReviewItems)
+}
+
+func convertReviewItems(items []ReviewItem) []types.ReviewItem {
+	result := make([]types.ReviewItem, len(items))
+	for i, item := range items {
+		result[i] = types.ReviewItem{
+			TodoItem: types.TodoItem{
+				ID:          item.TodoItem.ID,
+				Title:       item.TodoItem.Title,
+				Description: item.TodoItem.Description,
+				URL:         item.TodoItem.URL,
+				UpdatedAt:   item.TodoItem.UpdatedAt,
+				Tags:        item.TodoItem.Tags,
+			},
+			CIStatus: types.CIStatus{
+				State:      item.CIStatus.State,
+				TotalCount: item.CIStatus.TotalCount,
+				Checks:     convertCheckRuns(item.CIStatus.Checks),
+			},
+			PRDetails: types.PRDetails{
+				Additions:    item.PRDetails.Additions,
+				Deletions:    item.PRDetails.Deletions,
+				ChangedFiles: item.PRDetails.ChangedFiles,
+			},
+		}
+	}
+	return result
+}
+
+func convertCheckRuns(checks []CheckRun) []types.CheckRun {
+	result := make([]types.CheckRun, len(checks))
+	for i, check := range checks {
+		result[i] = types.CheckRun{
+			Name:       check.Name,
+			Status:     check.Status,
+			Conclusion: check.Conclusion,
+			URL:        check.URL,
+		}
+	}
+	return result
+}
+
 // TodoItem represents a single todo item (avoiding import cycles)
 type TodoItem struct {
 	ID          string    `json:"id"`
@@ -575,4 +794,44 @@ type JIRATodos struct {
 // ObsidianTodos represents pending Obsidian work items
 type ObsidianTodos struct {
 	Tasks []TodoItem `json:"tasks"`
+}
+
+// ReviewItems represents all review items
+type ReviewItems struct {
+	GitHub GitHubReviews `json:"github"`
+}
+
+// GitHubReviews represents review items from GitHub
+type GitHubReviews struct {
+	UserRequests []ReviewItem `json:"user_requests"`
+	TeamRequests []ReviewItem `json:"team_requests"`
+}
+
+// ReviewItem represents a pull request awaiting review with additional details
+type ReviewItem struct {
+	TodoItem  TodoItem  `json:"todo_item"`
+	CIStatus  CIStatus  `json:"ci_status"`
+	PRDetails PRDetails `json:"pr_details"`
+}
+
+// CIStatus represents CI check status for a PR
+type CIStatus struct {
+	State      string     `json:"state"` // success, failure, pending
+	TotalCount int        `json:"total_count"`
+	Checks     []CheckRun `json:"checks"`
+}
+
+// CheckRun represents a single CI check
+type CheckRun struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`     // completed, in_progress, queued
+	Conclusion string `json:"conclusion"` // success, failure, cancelled, etc.
+	URL        string `json:"url,omitempty"`
+}
+
+// PRDetails represents additional PR information
+type PRDetails struct {
+	Additions    int `json:"additions"`
+	Deletions    int `json:"deletions"`
+	ChangedFiles int `json:"changed_files"`
 }

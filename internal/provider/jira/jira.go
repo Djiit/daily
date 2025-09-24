@@ -45,12 +45,14 @@ func (p *Provider) GetActivities(ctx context.Context, from, to time.Time) ([]act
 
 	activities := make([]activity.Activity, 0)
 
-	// Get issues updated in the time range
+	// Get issues updated in the time range - continue even if this fails
 	issues, err := p.getUpdatedIssues(ctx, from, to)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get updated issues: %w", err)
+		// Log error but continue with empty results - warning handled by aggregator
+		fmt.Printf("JIRA: error fetching updated issues: %v", err)
+	} else {
+		activities = append(activities, issues...)
 	}
-	activities = append(activities, issues...)
 
 	return activities, nil
 }

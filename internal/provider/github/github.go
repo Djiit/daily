@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"daily/internal/activity"
@@ -263,12 +264,22 @@ func (p *Provider) GetOpenPRs(ctx context.Context) ([]TodoItem, error) {
 
 	var todos []TodoItem
 	for _, item := range searchResult.Items {
-		// Extract repository name from URL if repository field is not available
+		// Extract repository name from URL or repository field
 		repoName := fmt.Sprintf("PR #%d", item.Number)
+		repoFullName := ""
+
 		if item.Repository.FullName != "" {
 			repoName = item.Repository.FullName
+			repoFullName = item.Repository.FullName
 		} else if item.Repository.Name != "" {
 			repoName = item.Repository.Name
+			repoFullName = item.Repository.Name
+		} else {
+			// Extract from HTML URL: https://github.com/owner/repo/pull/123
+			repoFullName = extractRepoFromURL(item.HTMLURL)
+			if repoFullName != "" {
+				repoName = repoFullName
+			}
 		}
 
 		todos = append(todos, TodoItem{
@@ -278,6 +289,8 @@ func (p *Provider) GetOpenPRs(ctx context.Context) ([]TodoItem, error) {
 			URL:         item.HTMLURL,
 			UpdatedAt:   item.UpdatedAt,
 			Tags:        []string{repoName, "open"},
+			Number:      item.Number,
+			Repository:  repoFullName,
 		})
 	}
 
@@ -319,12 +332,22 @@ func (p *Provider) GetPendingReviews(ctx context.Context) ([]TodoItem, error) {
 
 	var todos []TodoItem
 	for _, item := range searchResult.Items {
-		// Extract repository name from URL if repository field is not available
+		// Extract repository name from URL or repository field
 		repoName := fmt.Sprintf("PR #%d", item.Number)
+		repoFullName := ""
+
 		if item.Repository.FullName != "" {
 			repoName = item.Repository.FullName
+			repoFullName = item.Repository.FullName
 		} else if item.Repository.Name != "" {
 			repoName = item.Repository.Name
+			repoFullName = item.Repository.Name
+		} else {
+			// Extract from HTML URL: https://github.com/owner/repo/pull/123
+			repoFullName = extractRepoFromURL(item.HTMLURL)
+			if repoFullName != "" {
+				repoName = repoFullName
+			}
 		}
 
 		todos = append(todos, TodoItem{
@@ -334,10 +357,323 @@ func (p *Provider) GetPendingReviews(ctx context.Context) ([]TodoItem, error) {
 			URL:         item.HTMLURL,
 			UpdatedAt:   item.UpdatedAt,
 			Tags:        []string{repoName, "review-requested"},
+			Number:      item.Number,
+			Repository:  repoFullName,
 		})
 	}
 
 	return todos, nil
+}
+
+// GetUserReviewRequests retrieves pull requests where the user is directly requested as a reviewer
+func (p *Provider) GetUserReviewRequests(ctx context.Context) ([]TodoItem, error) {
+	if !p.IsConfigured() {
+		return nil, fmt.Errorf("GitHub provider not configured")
+	}
+
+	query := fmt.Sprintf("review-requested:%s state:open type:pr -is:draft", p.config.Username)
+
+	// Add filter if configured and validate it's not malformed
+	if p.config.Filter != "" {
+		query = fmt.Sprintf("%s %s", query, p.config.Filter)
+	}
+
+	searchURL := fmt.Sprintf("https://api.github.com/search/issues?q=%s&sort=updated&order=desc&per_page=50",
+		url.QueryEscape(query))
+
+	return p.fetchReviewRequests(ctx, searchURL)
+}
+
+// GetTeamReviewRequests retrieves pull requests where the user's teams are requested as reviewers
+func (p *Provider) GetTeamReviewRequests(ctx context.Context) ([]TodoItem, error) {
+	if !p.IsConfigured() {
+		return nil, fmt.Errorf("GitHub provider not configured")
+	}
+
+	// First, get user's teams
+	teams, err := p.getUserTeams(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user teams: %w", err)
+	}
+
+	var allTodos []TodoItem
+
+	// Search for team review requests
+	for _, team := range teams {
+		query := fmt.Sprintf("team-review-requested:%s state:open type:pr -is:draft", team)
+
+		// Add filter if configured and validate it's not malformed
+		if p.config.Filter != "" {
+			query = fmt.Sprintf("%s %s", query, p.config.Filter)
+		}
+
+		searchURL := fmt.Sprintf("https://api.github.com/search/issues?q=%s&sort=updated&order=desc&per_page=20",
+			url.QueryEscape(query))
+
+		teamTodos, err := p.fetchReviewRequests(ctx, searchURL)
+		if err != nil {
+			// Log error but continue with other teams
+			continue
+		}
+
+		// Add team name as tag
+		for i := range teamTodos {
+			teamTodos[i].Tags = append(teamTodos[i].Tags, fmt.Sprintf("team:%s", team))
+		}
+
+		allTodos = append(allTodos, teamTodos...)
+	}
+
+	return allTodos, nil
+}
+
+// fetchReviewRequests is a helper method to fetch review requests from the GitHub API
+func (p *Provider) fetchReviewRequests(ctx context.Context, searchURL string) ([]TodoItem, error) {
+	var searchResult struct {
+		Items []struct {
+			Number     int       `json:"number"`
+			Title      string    `json:"title"`
+			Body       string    `json:"body"`
+			HTMLURL    string    `json:"html_url"`
+			UpdatedAt  time.Time `json:"updated_at"`
+			Repository struct {
+				Name     string `json:"name"`
+				FullName string `json:"full_name"`
+			} `json:"repository"`
+			User struct {
+				Login string `json:"login"`
+			} `json:"user"`
+		} `json:"items"`
+	}
+
+	if err := p.makeRequest(ctx, searchURL, &searchResult); err != nil {
+		return nil, err
+	}
+
+	var todos []TodoItem
+	for _, item := range searchResult.Items {
+		// Extract repository name from URL or repository field
+		repoName := fmt.Sprintf("PR #%d", item.Number)
+		repoFullName := ""
+
+		if item.Repository.FullName != "" {
+			repoName = item.Repository.FullName
+			repoFullName = item.Repository.FullName
+		} else if item.Repository.Name != "" {
+			repoName = item.Repository.Name
+			repoFullName = item.Repository.Name
+		} else {
+			// Extract from HTML URL: https://github.com/owner/repo/pull/123
+			repoFullName = extractRepoFromURL(item.HTMLURL)
+			if repoFullName != "" {
+				repoName = repoFullName
+			}
+		}
+
+		todos = append(todos, TodoItem{
+			ID:          fmt.Sprintf("github-review-%d", item.Number),
+			Title:       item.Title,
+			Description: fmt.Sprintf("Review requested in %s (by %s)", repoName, item.User.Login),
+			URL:         item.HTMLURL,
+			UpdatedAt:   item.UpdatedAt,
+			Tags:        []string{repoName, "review-requested"},
+			Number:      item.Number,
+			Repository:  repoFullName,
+		})
+	}
+
+	return todos, nil
+}
+
+// getUserTeams retrieves the teams that the user belongs to
+func (p *Provider) getUserTeams(ctx context.Context) ([]string, error) {
+	teamsURL := "https://api.github.com/user/teams"
+
+	var teams []struct {
+		Slug         string `json:"slug"`
+		Organization struct {
+			Login string `json:"login"`
+		} `json:"organization"`
+	}
+
+	if err := p.makeRequest(ctx, teamsURL, &teams); err != nil {
+		return nil, err
+	}
+
+	var teamNames []string
+	for _, team := range teams {
+		// Format as "org/team"
+		teamName := fmt.Sprintf("%s/%s", team.Organization.Login, team.Slug)
+		teamNames = append(teamNames, teamName)
+	}
+
+	return teamNames, nil
+}
+
+// extractRepoFromURL extracts the owner/repo from a GitHub URL
+// e.g., https://github.com/owner/repo/pull/123 -> owner/repo
+func extractRepoFromURL(htmlURL string) string {
+	// Parse the URL and extract the path
+	if !strings.HasPrefix(htmlURL, "https://github.com/") {
+		return ""
+	}
+
+	// Remove the base URL
+	path := strings.TrimPrefix(htmlURL, "https://github.com/")
+
+	// Split by "/" and take first two parts (owner/repo)
+	parts := strings.Split(path, "/")
+	if len(parts) >= 2 {
+		return fmt.Sprintf("%s/%s", parts[0], parts[1])
+	}
+
+	return ""
+}
+
+// GetPRCIStatus retrieves CI status for a specific pull request
+func (p *Provider) GetPRCIStatus(ctx context.Context, repo string, prNumber int) (CIStatus, error) {
+	var ciStatus CIStatus
+
+	if !p.IsConfigured() {
+		return ciStatus, fmt.Errorf("GitHub provider not configured")
+	}
+
+	if repo == "" || prNumber == 0 {
+		return ciStatus, fmt.Errorf("repository and PR number are required")
+	}
+
+	// Get PR details first to get the head SHA
+	prURL := fmt.Sprintf("https://api.github.com/repos/%s/pulls/%d", repo, prNumber)
+
+	var prData struct {
+		Head struct {
+			SHA string `json:"sha"`
+		} `json:"head"`
+	}
+
+	if err := p.makeRequest(ctx, prURL, &prData); err != nil {
+		return ciStatus, fmt.Errorf("failed to get PR details: %w", err)
+	}
+
+	// Get check runs for the commit
+	checksURL := fmt.Sprintf("https://api.github.com/repos/%s/commits/%s/check-runs", repo, prData.Head.SHA)
+
+	var checksResult struct {
+		TotalCount int `json:"total_count"`
+		CheckRuns  []struct {
+			Name       string `json:"name"`
+			Status     string `json:"status"`
+			Conclusion string `json:"conclusion"`
+			HTMLURL    string `json:"html_url"`
+		} `json:"check_runs"`
+	}
+
+	if err := p.makeRequest(ctx, checksURL, &checksResult); err != nil {
+		return ciStatus, fmt.Errorf("failed to get check runs: %w", err)
+	}
+
+	ciStatus.TotalCount = checksResult.TotalCount
+
+	// Convert check runs to our format
+	for _, check := range checksResult.CheckRuns {
+		ciStatus.Checks = append(ciStatus.Checks, CheckRun{
+			Name:       check.Name,
+			Status:     check.Status,
+			Conclusion: check.Conclusion,
+			URL:        check.HTMLURL,
+		})
+	}
+
+	// Determine overall state
+	ciStatus.State = p.calculateOverallCIState(checksResult.CheckRuns)
+
+	return ciStatus, nil
+}
+
+// calculateOverallCIState determines the overall CI state from individual check runs
+func (p *Provider) calculateOverallCIState(checks []struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	Conclusion string `json:"conclusion"`
+	HTMLURL    string `json:"html_url"`
+}) string {
+	if len(checks) == 0 {
+		return ""
+	}
+
+	hasFailure := false
+	hasPending := false
+
+	for _, check := range checks {
+		if check.Status == "in_progress" || check.Status == "queued" {
+			hasPending = true
+		} else if check.Status == "completed" {
+			if check.Conclusion == "failure" || check.Conclusion == "cancelled" {
+				hasFailure = true
+			}
+		}
+	}
+
+	if hasFailure {
+		return "failure"
+	}
+	if hasPending {
+		return "pending"
+	}
+	return "success"
+}
+
+// GetPRDetails retrieves additional details about a pull request (additions, deletions, changed files)
+func (p *Provider) GetPRDetails(ctx context.Context, repo string, prNumber int) (PRDetails, error) {
+	var details PRDetails
+
+	if !p.IsConfigured() {
+		return details, fmt.Errorf("GitHub provider not configured")
+	}
+
+	if repo == "" || prNumber == 0 {
+		return details, fmt.Errorf("repository and PR number are required")
+	}
+
+	prURL := fmt.Sprintf("https://api.github.com/repos/%s/pulls/%d", repo, prNumber)
+
+	var prData struct {
+		Additions    int `json:"additions"`
+		Deletions    int `json:"deletions"`
+		ChangedFiles int `json:"changed_files"`
+	}
+
+	if err := p.makeRequest(ctx, prURL, &prData); err != nil {
+		return details, fmt.Errorf("failed to get PR details: %w", err)
+	}
+
+	details.Additions = prData.Additions
+	details.Deletions = prData.Deletions
+	details.ChangedFiles = prData.ChangedFiles
+
+	return details, nil
+}
+
+// CIStatus represents CI check status for a PR
+type CIStatus struct {
+	State      string     `json:"state"` // success, failure, pending
+	TotalCount int        `json:"total_count"`
+	Checks     []CheckRun `json:"checks"`
+}
+
+// CheckRun represents a single CI check
+type CheckRun struct {
+	Name       string `json:"name"`
+	Status     string `json:"status"`     // completed, in_progress, queued
+	Conclusion string `json:"conclusion"` // success, failure, cancelled, etc.
+	URL        string `json:"url,omitempty"`
+}
+
+// PRDetails represents additional PR information
+type PRDetails struct {
+	Additions    int `json:"additions"`
+	Deletions    int `json:"deletions"`
+	ChangedFiles int `json:"changed_files"`
 }
 
 // TodoItem represents a single todo item (avoiding import cycles)
@@ -348,4 +684,6 @@ type TodoItem struct {
 	URL         string    `json:"url,omitempty"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	Tags        []string  `json:"tags,omitempty"`
+	Number      int       `json:"number,omitempty"`     // PR number
+	Repository  string    `json:"repository,omitempty"` // Repository full name
 }

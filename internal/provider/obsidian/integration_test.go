@@ -120,7 +120,7 @@ func TestProvider_Integration_TaskTypes(t *testing.T) {
 	// Count expected tasks
 	expectedTodoTasks := []string{
 		"Morning standup meeting",
-		"Update API documentation", 
+		"Update API documentation",
 		"Client call at 3 PM",
 		"High-fidelity mockups",
 		"Prototype development",

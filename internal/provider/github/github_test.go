@@ -244,3 +244,257 @@ func TestProvider_GetPendingReviews(t *testing.T) {
 		})
 	}
 }
+
+func TestProvider_GetUserReviewRequests(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         provider.Config
+		expectError    bool
+		expectedErrMsg string
+	}{
+		{
+			name: "configured provider",
+			config: provider.Config{
+				Username: "testuser",
+				Token:    "testtoken",
+				Enabled:  true,
+			},
+			expectError: true, // Will fail with fake credentials but should not panic
+		},
+		{
+			name: "unconfigured provider",
+			config: provider.Config{
+				Username: "",
+				Token:    "",
+				Enabled:  false,
+			},
+			expectError:    true,
+			expectedErrMsg: "GitHub provider not configured",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewProvider(tt.config)
+
+			requests, err := p.GetUserReviewRequests(context.Background())
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error, got nil")
+				}
+				if tt.expectedErrMsg != "" && err.Error() != tt.expectedErrMsg {
+					t.Errorf("Expected error message '%s', got '%s'", tt.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+				if requests == nil {
+					t.Error("Expected non-nil requests slice")
+				}
+			}
+		})
+	}
+}
+
+func TestProvider_GetTeamReviewRequests(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         provider.Config
+		expectError    bool
+		expectedErrMsg string
+	}{
+		{
+			name: "configured provider",
+			config: provider.Config{
+				Username: "testuser",
+				Token:    "testtoken",
+				Enabled:  true,
+			},
+			expectError: true, // Will fail with fake credentials but should not panic
+		},
+		{
+			name: "unconfigured provider",
+			config: provider.Config{
+				Username: "",
+				Token:    "",
+				Enabled:  false,
+			},
+			expectError:    true,
+			expectedErrMsg: "GitHub provider not configured",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewProvider(tt.config)
+
+			requests, err := p.GetTeamReviewRequests(context.Background())
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error, got nil")
+				}
+				if tt.expectedErrMsg != "" && err.Error() != tt.expectedErrMsg {
+					t.Errorf("Expected error message '%s', got '%s'", tt.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+				if requests == nil {
+					t.Error("Expected non-nil requests slice")
+				}
+			}
+		})
+	}
+}
+
+func TestProvider_GetPRCIStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         provider.Config
+		repo           string
+		prNumber       int
+		expectError    bool
+		expectedErrMsg string
+	}{
+		{
+			name: "configured provider with valid params",
+			config: provider.Config{
+				Username: "testuser",
+				Token:    "testtoken",
+				Enabled:  true,
+			},
+			repo:        "owner/repo",
+			prNumber:    123,
+			expectError: true, // Will fail with fake credentials but should not panic
+		},
+		{
+			name: "unconfigured provider",
+			config: provider.Config{
+				Username: "",
+				Token:    "",
+				Enabled:  false,
+			},
+			repo:           "owner/repo",
+			prNumber:       123,
+			expectError:    true,
+			expectedErrMsg: "GitHub provider not configured",
+		},
+		{
+			name: "invalid repo format",
+			config: provider.Config{
+				Username: "testuser",
+				Token:    "testtoken",
+				Enabled:  true,
+			},
+			repo:        "invalid-repo",
+			prNumber:    123,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewProvider(tt.config)
+
+			status, err := p.GetPRCIStatus(context.Background(), tt.repo, tt.prNumber)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error, got nil")
+				}
+				if tt.expectedErrMsg != "" && err.Error() != tt.expectedErrMsg {
+					t.Errorf("Expected error message '%s', got '%s'", tt.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+				// Verify status structure exists
+				if status.Checks == nil {
+					t.Error("Expected non-nil checks slice")
+				}
+			}
+		})
+	}
+}
+
+func TestProvider_GetPRDetails(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         provider.Config
+		repo           string
+		prNumber       int
+		expectError    bool
+		expectedErrMsg string
+	}{
+		{
+			name: "configured provider with valid params",
+			config: provider.Config{
+				Username: "testuser",
+				Token:    "testtoken",
+				Enabled:  true,
+			},
+			repo:        "owner/repo",
+			prNumber:    123,
+			expectError: true, // Will fail with fake credentials but should not panic
+		},
+		{
+			name: "unconfigured provider",
+			config: provider.Config{
+				Username: "",
+				Token:    "",
+				Enabled:  false,
+			},
+			repo:           "owner/repo",
+			prNumber:       123,
+			expectError:    true,
+			expectedErrMsg: "GitHub provider not configured",
+		},
+		{
+			name: "invalid repo format",
+			config: provider.Config{
+				Username: "testuser",
+				Token:    "testtoken",
+				Enabled:  true,
+			},
+			repo:        "invalid-repo",
+			prNumber:    123,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewProvider(tt.config)
+
+			details, err := p.GetPRDetails(context.Background(), tt.repo, tt.prNumber)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error, got nil")
+				}
+				if tt.expectedErrMsg != "" && err.Error() != tt.expectedErrMsg {
+					t.Errorf("Expected error message '%s', got '%s'", tt.expectedErrMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				}
+				// Verify details structure - these should be non-negative
+				if details.Additions < 0 {
+					t.Error("Expected non-negative additions count")
+				}
+				if details.Deletions < 0 {
+					t.Error("Expected non-negative deletions count")
+				}
+				if details.ChangedFiles < 0 {
+					t.Error("Expected non-negative changed files count")
+				}
+			}
+		})
+	}
+}
