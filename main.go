@@ -20,6 +20,7 @@ func main() {
 	rootCmd.AddCommand(cmd.SumCmd())
 	rootCmd.AddCommand(cmd.ConfigCmd())
 	rootCmd.AddCommand(cmd.TodoCmd())
+	rootCmd.AddCommand(cmd.ReviewsCmd())
 
 	if err := fang.Execute(context.Background(), rootCmd); err != nil {
 		os.Exit(1)
