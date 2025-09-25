@@ -177,7 +177,12 @@ func (p *Provider) parseTasksFromFile(filePath string, fileInfo os.FileInfo) ([]
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log the error or handle it appropriately
+			// Since this is in a defer, we can't return the error
+		}
+	}()
 
 	var tasks []TodoItem
 	scanner := bufio.NewScanner(file)
