@@ -1,5 +1,9 @@
 [tools]
 go = "1.24.5"
+golangci-lint = "latest"
+hk = "latest"
+"npm:prettier" = "latest"
+pkl = "latest"
 
 [tasks.build]
 description = "Build the daily binary"
