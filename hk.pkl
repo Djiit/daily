@@ -11,6 +11,9 @@ local linters = new Mapping<String, Step> {
     // Go linting with builtin golangci-lint
     ["golangci_lint"] = Builtins.golangci_lint
 
+    // Go vetting with builtin go vet
+    ["go_vet"] = Builtins.go_vet
+    
     // define a custom linter
     ["pkl"] {
         glob = "*.pkl"
