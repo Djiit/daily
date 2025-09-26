@@ -8,12 +8,13 @@ import (
 type ActivityType string
 
 const (
-	ActivityTypeCommit     ActivityType = "commit"
-	ActivityTypePR         ActivityType = "pull_request"
-	ActivityTypeIssue      ActivityType = "issue"
-	ActivityTypeJiraTicket ActivityType = "jira_ticket"
-	ActivityTypeNote       ActivityType = "note"
-	ActivityTypeTask       ActivityType = "task"
+	ActivityTypeCommit                 ActivityType = "commit"
+	ActivityTypePR                     ActivityType = "pull_request"
+	ActivityTypeIssue                  ActivityType = "issue"
+	ActivityTypeJiraTicket             ActivityType = "jira_ticket"
+	ActivityTypeNote                   ActivityType = "note"
+	ActivityTypeTask                   ActivityType = "task"
+	ActivityTypeConfluenceContribution ActivityType = "confluence_contribution"
 )
 
 // Activity represents a single work activity

@@ -8,6 +8,7 @@ import (
 
 	"daily/internal/config"
 	"daily/internal/output"
+	"daily/internal/provider/confluence"
 	"daily/internal/provider/github"
 	"daily/internal/provider/jira"
 	"daily/internal/provider/obsidian"
@@ -116,6 +117,31 @@ func TodoCmd() *cobra.Command {
 				}
 			} else if showVerbose {
 				fmt.Println("✗ Obsidian provider disabled")
+			}
+
+			// Get Confluence todos
+			if cfg.Confluence.Enabled {
+				if showVerbose {
+					fmt.Println("✓ Confluence provider enabled")
+				}
+				confluenceProvider := confluence.NewProvider(cfg.Confluence)
+				if confluenceProvider.IsConfigured() {
+					confluenceTodos, err := getConfluenceTodos(ctx, confluenceProvider)
+					if err != nil {
+						if showVerbose {
+							fmt.Printf("❌ Confluence todos failed: %v\n", err)
+						}
+					} else {
+						todoItems.Confluence = confluenceTodos
+						if showVerbose {
+							fmt.Printf("✅ Confluence returned %d mentions\n", len(confluenceTodos.Mentions))
+						}
+					}
+				} else if showVerbose {
+					fmt.Println("⚠️  Confluence provider not configured")
+				}
+			} else if showVerbose {
+				fmt.Println("✗ Confluence provider disabled")
 			}
 
 			if showVerbose {
@@ -229,6 +255,31 @@ func getObsidianTodos(ctx context.Context, provider *obsidian.Provider) (output.
 	todos.Tasks = make([]output.TodoItem, len(tasks))
 	for i, item := range tasks {
 		todos.Tasks[i] = output.TodoItem{
+			ID:          item.ID,
+			Title:       item.Title,
+			Description: item.Description,
+			URL:         item.URL,
+			UpdatedAt:   item.UpdatedAt,
+			Tags:        item.Tags,
+		}
+	}
+
+	return todos, nil
+}
+
+func getConfluenceTodos(ctx context.Context, provider *confluence.Provider) (output.ConfluenceTodos, error) {
+	var todos output.ConfluenceTodos
+
+	// Get mentions from Confluence
+	mentions, err := provider.GetMentions(ctx)
+	if err != nil {
+		return todos, fmt.Errorf("failed to get Confluence mentions: %w", err)
+	}
+
+	// Convert from confluence.TodoItem to output.TodoItem
+	todos.Mentions = make([]output.TodoItem, len(mentions))
+	for i, item := range mentions {
+		todos.Mentions[i] = output.TodoItem{
 			ID:          item.ID,
 			Title:       item.Title,
 			Description: item.Description,
