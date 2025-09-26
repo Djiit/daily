@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/Djiit/daily/compare/v0.2.1...v0.3.0) (2025-09-25)
+
+
+### Features
+
+* add reviews cmd ([e599b46](https://github.com/Djiit/daily/commit/e599b46267ea87a5b7b123a0b89632c9a3e44cbb))
+
+
+### Bug Fixes
+
+* ensure osbidian tasks are parsed ([d2f6e95](https://github.com/Djiit/daily/commit/d2f6e952eff3e3c98e70f66d35599282bd07c4c5))
+* fix failing jira test ([f6e8d02](https://github.com/Djiit/daily/commit/f6e8d02a45c308f2ba23bcb82d6a5be70309d385))
+* fix linter issue ([0c13331](https://github.com/Djiit/daily/commit/0c13331987af99c3a2a4f98e038ffa8f78cbd69a))
+
 ## [0.2.1](https://github.com/Djiit/daily/compare/v0.2.0...v0.2.1) (2025-08-28)
 
 
