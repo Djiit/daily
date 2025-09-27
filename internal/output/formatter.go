@@ -360,7 +360,7 @@ func (f *Formatter) FormatTodo(todoItems TodoItems) string {
 	output.WriteString(f.titleStyle.Render(title))
 	output.WriteString("\n")
 
-	totalItems := len(todoItems.GitHub.OpenPRs) + len(todoItems.GitHub.PendingReviews) + len(todoItems.JIRA.AssignedTickets) + len(todoItems.Obsidian.Tasks)
+	totalItems := len(todoItems.GitHub.OpenPRs) + len(todoItems.GitHub.PendingReviews) + len(todoItems.JIRA.AssignedTickets) + len(todoItems.Obsidian.Tasks) + len(todoItems.Confluence.Mentions)
 	if totalItems == 0 {
 		output.WriteString(f.headerStyle.Render("No pending items found."))
 		output.WriteString("\n")
@@ -389,6 +389,11 @@ func (f *Formatter) FormatTodo(todoItems TodoItems) string {
 	// Obsidian Tasks
 	if len(todoItems.Obsidian.Tasks) > 0 {
 		output.WriteString(f.formatTodoSection("📝 Obsidian Tasks", todoItems.Obsidian.Tasks))
+	}
+
+	// Confluence Mentions
+	if len(todoItems.Confluence.Mentions) > 0 {
+		output.WriteString(f.formatTodoSection("📋 Confluence Mentions", todoItems.Confluence.Mentions))
 	}
 
 	return output.String()
@@ -475,12 +480,16 @@ func (f *Formatter) FormatTodoJSON(todoItems TodoItems) string {
 		Obsidian struct {
 			Tasks []TodoItem `json:"tasks"`
 		} `json:"obsidian"`
+		Confluence struct {
+			Mentions []TodoItem `json:"mentions"`
+		} `json:"confluence"`
 		Summary struct {
-			Total           int `json:"total"`
-			OpenPRs         int `json:"open_prs"`
-			PendingReviews  int `json:"pending_reviews"`
-			AssignedTickets int `json:"assigned_tickets"`
-			ObsidianTasks   int `json:"obsidian_tasks"`
+			Total              int `json:"total"`
+			OpenPRs            int `json:"open_prs"`
+			PendingReviews     int `json:"pending_reviews"`
+			AssignedTickets    int `json:"assigned_tickets"`
+			ObsidianTasks      int `json:"obsidian_tasks"`
+			ConfluenceMentions int `json:"confluence_mentions"`
 		} `json:"summary"`
 	}{}
 
@@ -489,13 +498,15 @@ func (f *Formatter) FormatTodoJSON(todoItems TodoItems) string {
 	jsonOutput.GitHub.PendingReviews = sortTodoItems(todoItems.GitHub.PendingReviews)
 	jsonOutput.JIRA.AssignedTickets = sortTodoItems(todoItems.JIRA.AssignedTickets)
 	jsonOutput.Obsidian.Tasks = sortTodoItems(todoItems.Obsidian.Tasks)
+	jsonOutput.Confluence.Mentions = sortTodoItems(todoItems.Confluence.Mentions)
 
 	// Calculate summary
 	jsonOutput.Summary.OpenPRs = len(todoItems.GitHub.OpenPRs)
 	jsonOutput.Summary.PendingReviews = len(todoItems.GitHub.PendingReviews)
 	jsonOutput.Summary.AssignedTickets = len(todoItems.JIRA.AssignedTickets)
 	jsonOutput.Summary.ObsidianTasks = len(todoItems.Obsidian.Tasks)
-	jsonOutput.Summary.Total = jsonOutput.Summary.OpenPRs + jsonOutput.Summary.PendingReviews + jsonOutput.Summary.AssignedTickets + jsonOutput.Summary.ObsidianTasks
+	jsonOutput.Summary.ConfluenceMentions = len(todoItems.Confluence.Mentions)
+	jsonOutput.Summary.Total = jsonOutput.Summary.OpenPRs + jsonOutput.Summary.PendingReviews + jsonOutput.Summary.AssignedTickets + jsonOutput.Summary.ObsidianTasks + jsonOutput.Summary.ConfluenceMentions
 
 	// Marshal to JSON with proper indentation
 	jsonBytes, err := json.MarshalIndent(jsonOutput, "", "  ")
@@ -540,6 +551,9 @@ func (f *Formatter) convertToTUITypes(todoItems TodoItems) types.TodoItems {
 		},
 		Obsidian: types.ObsidianTodos{
 			Tasks: convertTodoItems(todoItems.Obsidian.Tasks),
+		},
+		Confluence: types.ConfluenceTodos{
+			Mentions: convertTodoItems(todoItems.Confluence.Mentions),
 		},
 	}
 }
@@ -775,9 +789,10 @@ type TodoItem struct {
 
 // TodoItems represents all pending work items
 type TodoItems struct {
-	GitHub   GitHubTodos   `json:"github"`
-	JIRA     JIRATodos     `json:"jira"`
-	Obsidian ObsidianTodos `json:"obsidian"`
+	GitHub     GitHubTodos     `json:"github"`
+	JIRA       JIRATodos       `json:"jira"`
+	Obsidian   ObsidianTodos   `json:"obsidian"`
+	Confluence ConfluenceTodos `json:"confluence"`
 }
 
 // GitHubTodos represents pending GitHub work items
@@ -794,6 +809,11 @@ type JIRATodos struct {
 // ObsidianTodos represents pending Obsidian work items
 type ObsidianTodos struct {
 	Tasks []TodoItem `json:"tasks"`
+}
+
+// ConfluenceTodos represents pending Confluence work items
+type ConfluenceTodos struct {
+	Mentions []TodoItem `json:"mentions"`
 }
 
 // ReviewItems represents all review items

@@ -14,9 +14,10 @@ type TodoItem struct {
 
 // TodoItems represents all pending work items
 type TodoItems struct {
-	GitHub   GitHubTodos   `json:"github"`
-	JIRA     JIRATodos     `json:"jira"`
-	Obsidian ObsidianTodos `json:"obsidian"`
+	GitHub     GitHubTodos     `json:"github"`
+	JIRA       JIRATodos       `json:"jira"`
+	Obsidian   ObsidianTodos   `json:"obsidian"`
+	Confluence ConfluenceTodos `json:"confluence"`
 }
 
 // GitHubTodos represents pending GitHub work items
@@ -33,6 +34,11 @@ type JIRATodos struct {
 // ObsidianTodos represents pending Obsidian work items
 type ObsidianTodos struct {
 	Tasks []TodoItem `json:"tasks"`
+}
+
+// ConfluenceTodos represents pending Confluence work items
+type ConfluenceTodos struct {
+	Mentions []TodoItem `json:"mentions"`
 }
 
 // ReviewItems represents all review items
