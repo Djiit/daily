@@ -446,3 +446,53 @@ func TestProvider_TimeRangeHandling(t *testing.T) {
 		})
 	}
 }
+
+func TestProvider_GetBaseURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		inputURL    string
+		expectedURL string
+	}{
+		{
+			name:        "plain domain",
+			inputURL:    "example.atlassian.net",
+			expectedURL: "https://example.atlassian.net",
+		},
+		{
+			name:        "https prefix already present",
+			inputURL:    "https://example.atlassian.net",
+			expectedURL: "https://example.atlassian.net",
+		},
+		{
+			name:        "http prefix (preserved)",
+			inputURL:    "http://example.atlassian.net",
+			expectedURL: "http://example.atlassian.net",
+		},
+		{
+			name:        "trailing slash removed",
+			inputURL:    "example.atlassian.net/",
+			expectedURL: "https://example.atlassian.net",
+		},
+		{
+			name:        "https with trailing slash",
+			inputURL:    "https://example.atlassian.net/",
+			expectedURL: "https://example.atlassian.net",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := provider.Config{
+				URL:     tt.inputURL,
+				Enabled: true,
+			}
+
+			p := NewProvider(config)
+			result := p.getBaseURL()
+
+			if result != tt.expectedURL {
+				t.Errorf("Expected URL '%s', got '%s'", tt.expectedURL, result)
+			}
+		})
+	}
+}

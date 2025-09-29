@@ -84,7 +84,7 @@ func (p *Provider) GetMentions(ctx context.Context) ([]TodoItem, error) {
 			ID:          result.Content.ID,
 			Title:       result.Content.Title,
 			Description: fmt.Sprintf("Type: %s", strings.Title(result.Content.Type)),
-			URL:         fmt.Sprintf("%s/wiki%s", strings.TrimSuffix(p.config.URL, "/"), result.URL),
+			URL:         fmt.Sprintf("%s/wiki%s", p.getBaseURL(), result.URL),
 			UpdatedAt:   time.Now(), // Confluence search doesn't provide lastModified in this format
 			Tags:        []string{priority},
 		})
@@ -112,7 +112,7 @@ func (p *Provider) getContributions(ctx context.Context, from, to time.Time) ([]
 			Type:        activity.ActivityTypeConfluenceContribution,
 			Title:       result.Content.Title,
 			Description: fmt.Sprintf("Modified %s", strings.ToLower(result.Content.Type)),
-			URL:         fmt.Sprintf("%s/wiki%s", strings.TrimSuffix(p.config.URL, "/"), result.URL),
+			URL:         fmt.Sprintf("%s/wiki%s", p.getBaseURL(), result.URL),
 			Platform:    "confluence",
 			Timestamp:   time.Now(), // Will be updated when we can parse lastModified properly
 			Tags:        []string{result.Content.Type},
@@ -122,10 +122,19 @@ func (p *Provider) getContributions(ctx context.Context, from, to time.Time) ([]
 	return activities, nil
 }
 
+// getBaseURL returns the properly formatted base URL with https prefix
+func (p *Provider) getBaseURL() string {
+	baseURL := strings.TrimSuffix(p.config.URL, "/")
+	if !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+		baseURL = "https://" + baseURL
+	}
+	return baseURL
+}
+
 // searchConfluence performs a CQL search against Confluence
 func (p *Provider) searchConfluence(ctx context.Context, cql string) (*ConfluenceSearchResult, error) {
 	// Properly encode URL parameters
-	apiURL := fmt.Sprintf("%s/wiki/rest/api/search", strings.TrimSuffix(p.config.URL, "/"))
+	apiURL := fmt.Sprintf("%s/wiki/rest/api/search", p.getBaseURL())
 	params := url.Values{}
 	params.Add("cql", cql)
 	params.Add("limit", "50")
