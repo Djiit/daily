@@ -178,9 +178,9 @@ func (p *Provider) parseTasksFromFile(filePath string, fileInfo os.FileInfo) ([]
 		return nil, err
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			// Log the error or handle it appropriately
-			// Since this is in a defer, we can't return the error
+		if closeErr := file.Close(); closeErr != nil {
+			// Log the close error but don't override the main error
+			fmt.Printf("Warning: failed to close file %s: %v\n", filePath, closeErr)
 		}
 	}()
 

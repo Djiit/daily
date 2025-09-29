@@ -47,6 +47,12 @@ func configShowCmd() *cobra.Command {
 			fmt.Printf("\n\nObsidian:")
 			fmt.Printf("\n  Enabled: %t", cfg.Obsidian.Enabled)
 			fmt.Printf("\n  Vault Path: %s", cfg.Obsidian.URL)
+
+			fmt.Printf("\n\nConfluence:")
+			fmt.Printf("\n  Enabled: %t", cfg.Confluence.Enabled)
+			fmt.Printf("\n  URL: %s", cfg.Confluence.URL)
+			fmt.Printf("\n  Email: %s", cfg.Confluence.Email)
+			fmt.Printf("\n  Token: %s", maskToken(cfg.Confluence.Token))
 			fmt.Println()
 
 			return nil

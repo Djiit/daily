@@ -11,6 +11,7 @@ import (
 	"daily/internal/config"
 	"daily/internal/output"
 	"daily/internal/provider"
+	"daily/internal/provider/confluence"
 	"daily/internal/provider/github"
 	"daily/internal/provider/jira"
 	"daily/internal/provider/obsidian"
@@ -123,6 +124,15 @@ func SumCmd() *cobra.Command {
 				aggregator.AddProvider(obsidian.NewProvider(cfg.Obsidian))
 			} else if showVerbose {
 				fmt.Println("✗ Obsidian provider disabled")
+			}
+
+			if cfg.Confluence.Enabled {
+				if showVerbose {
+					fmt.Println("✓ Confluence provider enabled")
+				}
+				aggregator.AddProvider(confluence.NewProvider(cfg.Confluence))
+			} else if showVerbose {
+				fmt.Println("✗ Confluence provider disabled")
 			}
 
 			// Get summary

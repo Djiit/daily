@@ -10,9 +10,10 @@ import (
 )
 
 type Config struct {
-	GitHub   provider.Config `json:"github"`
-	JIRA     provider.Config `json:"jira"`
-	Obsidian provider.Config `json:"obsidian"`
+	GitHub     provider.Config `json:"github"`
+	JIRA       provider.Config `json:"jira"`
+	Obsidian   provider.Config `json:"obsidian"`
+	Confluence provider.Config `json:"confluence"`
 }
 
 func DefaultConfig() *Config {
@@ -24,6 +25,9 @@ func DefaultConfig() *Config {
 			Enabled: false,
 		},
 		Obsidian: provider.Config{
+			Enabled: false,
+		},
+		Confluence: provider.Config{
 			Enabled: false,
 		},
 	}
