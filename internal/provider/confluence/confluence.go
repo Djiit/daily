@@ -154,7 +154,12 @@ func (p *Provider) searchConfluence(ctx context.Context, cql string) (*Confluenc
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute Confluence request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log the close error but don't override the main error
+			fmt.Printf("Warning: failed to close response body: %v\n", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Confluence API returned status %d: %s", resp.StatusCode, resp.Status)

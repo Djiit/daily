@@ -177,7 +177,12 @@ func (p *Provider) parseTasksFromFile(filePath string, fileInfo os.FileInfo) ([]
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			// Log the close error but don't override the main error
+			fmt.Printf("Warning: failed to close file %s: %v\n", filePath, closeErr)
+		}
+	}()
 
 	var tasks []TodoItem
 	scanner := bufio.NewScanner(file)
