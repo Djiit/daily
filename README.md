@@ -35,7 +35,7 @@ go build -o daily .
 ### Using Go Install
 
 ```bash
-go install github.com/your-org/daily@latest
+go install github.com/djiit/daily@latest
 ```
 
 ## Quick Start
