@@ -91,7 +91,7 @@ go install github.com/djiit/daily@latest
 Get activities for a time range or specific date.
 
 ```bash
-# Get activities from last day (new default)
+# Get activities from last day (default)
 ./daily sum
 
 # Get activities from last 2 weeks
