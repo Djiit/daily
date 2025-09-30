@@ -21,6 +21,9 @@ import (
 	"daily/internal/tui"
 )
 
+// sinceDurationRe is a compiled regex for parsing since duration format (e.g., "1d", "2w")
+var sinceDurationRe = regexp.MustCompile(`^(\d+)([hdwm])$`)
+
 func SumCmd() *cobra.Command {
 	var date string
 	var since string
@@ -264,8 +267,7 @@ func parseDate(dateStr string) (time.Time, error) {
 // and returns the "from" time (now - duration)
 func parseSinceDuration(since string) (time.Time, error) {
 	// Match format: number + unit (h/d/w/m)
-	re := regexp.MustCompile(`^(\d+)([hdwm])$`)
-	matches := re.FindStringSubmatch(since)
+	matches := sinceDurationRe.FindStringSubmatch(since)
 
 	if matches == nil {
 		return time.Time{}, fmt.Errorf("invalid since format: %s (expected format: 1h, 1d, 1w, or 1m)", since)
