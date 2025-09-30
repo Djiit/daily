@@ -1,6 +1,6 @@
 module daily
 
-go 1.24.5
+go 1.25.1
 
 require (
 	github.com/catppuccin/go v0.3.0

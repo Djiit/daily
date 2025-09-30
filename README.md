@@ -1,10 +1,10 @@
 # Daily CLI
 
-A Go CLI tool that aggregates work activities from multiple providers (GitHub, JIRA, Obsidian) and provides daily summaries and todo lists.
+A Go CLI tool that aggregates work activities from multiple providers (GitHub, JIRA, Obsidian, Confluence) and provides daily summaries and todo lists.
 
 ## Features
 
-- **Multi-provider support**: GitHub, JIRA, and Obsidian integration
+- **Multi-provider support**: GitHub, JIRA, Obsidian, and Confluence integration
 - **Daily summaries**: Get activities for specific dates or date ranges
 - **Todo management**: View pending PRs, reviews, and assigned tickets
 - **Flexible filtering**: Use provider-specific filters to focus on relevant content
@@ -63,6 +63,12 @@ go install github.com/djiit/daily@latest
      },
      "obsidian": {
        "url": "/path/to/your/obsidian/vault",
+       "enabled": true
+     },
+     "confluence": {
+       "email": "your-email@company.com",
+       "token": "your-atlassian-api-token",
+       "url": "https://your-company.atlassian.net",
        "enabled": true
      }
    }
@@ -204,6 +210,29 @@ Optional fields:
 Required fields:
 - `url`: Path to your Obsidian vault directory
 - `enabled`: Set to `true` to enable the provider
+
+### Confluence
+
+Required fields:
+- `email`: Your Atlassian account email (same as JIRA)
+- `token`: Atlassian API Token (same as JIRA)
+- `url`: Your Atlassian instance URL (e.g., `https://company.atlassian.net`)
+- `enabled`: Set to `true` to enable the provider
+
+#### Atlassian API Token
+
+The Confluence provider uses the same Atlassian API token as JIRA:
+
+1. Go to [Atlassian Account Settings](https://id.atlassian.com/manage-profile/security/api-tokens)
+2. Create a new API token
+3. Copy the token to your configuration
+
+**Note**: The same token works for both JIRA and Confluence, so you can reuse your JIRA credentials.
+
+#### What Confluence Tracks
+
+- **Summaries**: Shows pages you contributed to (created or modified) during the selected date range
+- **Todos**: Shows pages where you have been mentioned in the last 2 weeks
 
 ## Filtering
 
@@ -384,6 +413,12 @@ The configuration file is stored at `~/.config/daily/config.json` and is automat
   "obsidian": {
     "url": "/Users/username/Documents/Obsidian Vault",
     "enabled": false
+  },
+  "confluence": {
+    "email": "user@company.com",
+    "token": "ATATT3xFfGF09WmR...",
+    "url": "https://company.atlassian.net",
+    "enabled": true
   }
 }
 ```
@@ -397,6 +432,7 @@ The tool tracks different types of activities:
 - **`issue`** - GitHub issues
 - **`jira_ticket`** - JIRA tickets
 - **`note`** - Obsidian notes
+- **`confluence_contribution`** - Confluence page contributions
 
 ## Development
 
@@ -456,7 +492,7 @@ type Provider interface {
 }
 ```
 
-Providers are located in `internal/provider/{github,jira,obsidian}/` and use a common `Config` struct for authentication and settings.
+Providers are located in `internal/provider/{github,jira,obsidian,confluence}/` and use a common `Config` struct for authentication and settings.
 
 ## Troubleshooting
 
