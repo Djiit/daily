@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Daily is a Go CLI tool that aggregates work activities from multiple providers (GitHub, JIRA, Obsidian) and provides summaries. The application uses a provider-based architecture where each data source implements the `Provider` interface.
+Daily is a Go CLI tool that aggregates work activities from multiple providers (GitHub, JIRA, Obsidian, Confluence) and provides summaries. The application uses a provider-based architecture where each data source implements the `Provider` interface.
 
 ## Development Commands
 
@@ -47,7 +47,7 @@ type Provider interface {
 }
 ```
 
-Providers are located in `internal/provider/{github,jira,obsidian}/` and use a common `Config` struct for authentication and settings.
+Providers are located in `internal/provider/{github,jira,obsidian,confluence}/` and use a common `Config` struct for authentication and settings.
 
 ### Activity Types
 - `commit` - Git commits
@@ -55,6 +55,7 @@ Providers are located in `internal/provider/{github,jira,obsidian}/` and use a c
 - `issue` - GitHub issues
 - `jira_ticket` - JIRA tickets
 - `note` - Obsidian notes
+- `confluence_contribution` - Confluence page contributions
 
 ## Configuration
 
@@ -87,3 +88,4 @@ The todo command displays:
 - **Open PRs**: Pull requests created by you that are still open
 - **Pending Reviews**: Pull requests where you are requested as a reviewer
 - **Assigned JIRA Tickets**: JIRA tickets assigned to you that are not done/closed/resolved
+- **Confluence Mentions**: Confluence pages where you have been mentioned
