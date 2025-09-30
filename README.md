@@ -82,16 +82,21 @@ go install github.com/djiit/daily@latest
 
 ### `sum` - Daily Summary
 
-Get activities for a specific date or date range.
+Get activities for a time range or specific date.
 
 ```bash
-# Get yesterday's summary (default TUI)
+# Get activities from last day (new default)
 ./daily sum
 
-# Get today's summary
-./daily sum -d today
+# Get activities from last 2 weeks
+./daily sum --since 2w
 
-# Get specific date
+# Get activities from last 3 hours
+./daily sum --since 3h
+
+# Get specific date (legacy date-based query)
+./daily sum -d yesterday
+./daily sum -d today
 ./daily sum -d 2024-01-15
 
 # Text output format
@@ -107,13 +112,27 @@ Get activities for a specific date or date range.
 ./daily sum -o json
 ```
 
+**Time Range Formats:**
+- `1h`, `2h`, etc. - Hours
+- `1d`, `2d`, etc. - Days
+- `1w`, `2w`, etc. - Weeks
+- `1m`, `2m`, etc. - Months
+
+**Note:** Cannot use both `--since` and `--date` flags together.
+
 ### `todo` - Todo Management
 
 View pending work items across all providers.
 
 ```bash
-# Get pending items (default TUI output)
+# Get pending items (default: 2 weeks lookback for Confluence mentions)
 ./daily todo
+
+# Limit Confluence mentions to last week
+./daily todo --since 1w
+
+# Only recent Confluence mentions from last day
+./daily todo --since 1d
 
 # Text output format
 ./daily todo -o text
@@ -129,6 +148,7 @@ The todo command displays:
 - **Open PRs**: Pull requests created by you that are still open
 - **Pending Reviews**: Pull requests where you are requested as a reviewer
 - **Assigned JIRA Tickets**: JIRA tickets assigned to you that are not done/closed/resolved
+- **Confluence Mentions**: Confluence pages where you have been mentioned (controlled by `--since` flag, default: 2w)
 
 ### `config` - Configuration Management
 

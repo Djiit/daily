@@ -76,6 +76,43 @@ func (a *Aggregator) GetSummary(ctx context.Context, date time.Time) (*activity.
 	}, nil
 }
 
+// GetSummaryByTimeRange retrieves activities from all configured providers for a time range
+func (a *Aggregator) GetSummaryByTimeRange(ctx context.Context, from, to time.Time, verbose bool) (*activity.Summary, error) {
+	var allActivities []activity.Activity
+
+	for _, provider := range a.providers {
+		if !provider.IsConfigured() {
+			if verbose {
+				fmt.Printf("⚠️  %s provider not configured, skipping\n", provider.Name())
+			}
+			continue
+		}
+
+		if verbose {
+			fmt.Printf("🔍 Querying %s provider...\n", provider.Name())
+		}
+
+		activities, err := provider.GetActivities(ctx, from, to)
+		if err != nil {
+			if verbose {
+				fmt.Printf("❌ %s provider failed: %v\n", provider.Name(), err)
+			}
+			continue
+		}
+
+		if verbose {
+			fmt.Printf("✅ %s provider returned %d activities\n", provider.Name(), len(activities))
+		}
+
+		allActivities = append(allActivities, activities...)
+	}
+
+	return &activity.Summary{
+		Date:       from, // Use the start of the range as the summary date
+		Activities: allActivities,
+	}, nil
+}
+
 // GetSummaryWithVerbose is like GetSummary but with verbose logging
 func (a *Aggregator) GetSummaryWithVerbose(ctx context.Context, date time.Time, verbose bool) (*activity.Summary, error) {
 	// Get activities for the full day

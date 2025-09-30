@@ -17,6 +17,7 @@ import (
 func TodoCmd() *cobra.Command {
 	var verbose bool
 	var outputFormat string
+	var since string
 
 	cmd := &cobra.Command{
 		Use:   "todo",
@@ -40,6 +41,11 @@ func TodoCmd() *cobra.Command {
 
 			ctx := context.Background()
 			showVerbose := verbose && outputFormat == "text"
+
+			// Default to 2w if no since value provided
+			if since == "" {
+				since = "2w"
+			}
 
 			var todoItems output.TodoItems
 
@@ -126,7 +132,7 @@ func TodoCmd() *cobra.Command {
 				}
 				confluenceProvider := confluence.NewProvider(cfg.Confluence)
 				if confluenceProvider.IsConfigured() {
-					confluenceTodos, err := getConfluenceTodos(ctx, confluenceProvider)
+					confluenceTodos, err := getConfluenceTodos(ctx, confluenceProvider, since)
 					if err != nil {
 						if showVerbose {
 							fmt.Printf("❌ Confluence todos failed: %v\n", err)
@@ -169,6 +175,7 @@ func TodoCmd() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output for debugging (text mode only)")
 	cmd.Flags().StringVarP(&outputFormat, "output", "o", "tui", "Output format: 'tui', 'text', or 'json'")
+	cmd.Flags().StringVarP(&since, "since", "s", "", "Time range for Confluence mentions (e.g., 1d, 2w, 1m). Default: 2w")
 
 	return cmd
 }
@@ -267,11 +274,11 @@ func getObsidianTodos(ctx context.Context, provider *obsidian.Provider) (output.
 	return todos, nil
 }
 
-func getConfluenceTodos(ctx context.Context, provider *confluence.Provider) (output.ConfluenceTodos, error) {
+func getConfluenceTodos(ctx context.Context, provider *confluence.Provider, since string) (output.ConfluenceTodos, error) {
 	var todos output.ConfluenceTodos
 
 	// Get mentions from Confluence
-	mentions, err := provider.GetMentions(ctx)
+	mentions, err := provider.GetMentions(ctx, since)
 	if err != nil {
 		return todos, fmt.Errorf("failed to get Confluence mentions: %w", err)
 	}

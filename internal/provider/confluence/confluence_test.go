@@ -201,7 +201,7 @@ func TestProvider_GetMentions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewProvider(tt.config)
 
-			mentions, err := p.GetMentions(context.Background())
+			mentions, err := p.GetMentions(context.Background(), "2w")
 
 			if tt.expectError {
 				if err == nil {
@@ -260,7 +260,7 @@ func TestProvider_GetMentions_NotConfigured(t *testing.T) {
 
 	p := NewProvider(config)
 
-	_, err := p.GetMentions(context.Background())
+	_, err := p.GetMentions(context.Background(), "2w")
 
 	if err == nil {
 		t.Error("Expected error for unconfigured provider, got nil")
@@ -387,7 +387,7 @@ func TestProvider_ContextCancellation(t *testing.T) {
 	}
 
 	// Test GetMentions with cancelled context
-	mentions, err := p.GetMentions(ctx)
+	mentions, err := p.GetMentions(ctx, "2w")
 	// Should handle context cancellation gracefully
 	if err != nil && mentions == nil {
 		// This is acceptable behavior
@@ -493,6 +493,64 @@ func TestProvider_GetBaseURL(t *testing.T) {
 			if result != tt.expectedURL {
 				t.Errorf("Expected URL '%s', got '%s'", tt.expectedURL, result)
 			}
+		})
+	}
+}
+
+func TestProvider_GetMentions_SinceFormat(t *testing.T) {
+	tests := []struct {
+		name       string
+		sinceInput string
+		expectErr  bool
+	}{
+		{
+			name:       "without dash prefix",
+			sinceInput: "2w",
+			expectErr:  true, // Will fail with fake credentials, but shouldn't panic
+		},
+		{
+			name:       "with dash prefix",
+			sinceInput: "-2w",
+			expectErr:  true, // Will fail with fake credentials, but shouldn't panic
+		},
+		{
+			name:       "days format",
+			sinceInput: "7d",
+			expectErr:  true,
+		},
+		{
+			name:       "hours format",
+			sinceInput: "24h",
+			expectErr:  true,
+		},
+		{
+			name:       "months format",
+			sinceInput: "1m",
+			expectErr:  true,
+		},
+	}
+
+	config := provider.Config{
+		Email:   "test@example.com",
+		Token:   "testtoken",
+		URL:     "example.atlassian.net",
+		Enabled: true,
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewProvider(config)
+
+			// This will fail with fake credentials, but the test verifies the method doesn't panic
+			mentions, err := p.GetMentions(context.Background(), tt.sinceInput)
+
+			// With fake credentials, we expect an error
+			if err == nil && tt.expectErr {
+				t.Error("Expected error with fake credentials, got nil")
+			}
+
+			// The important thing is that the method doesn't panic with various since formats
+			_ = mentions
 		})
 	}
 }
