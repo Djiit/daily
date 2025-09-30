@@ -131,7 +131,6 @@ func TestParseSinceDuration_Accuracy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			before := time.Now()
 			result, err := parseSinceDuration(tt.input)
-			after := time.Now()
 
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
@@ -150,7 +149,7 @@ func TestParseSinceDuration_Accuracy(t *testing.T) {
 				t.Errorf("Duration mismatch for '%s': expected %v, got %v (diff: %v)", tt.input, tt.expected, actualDuration, diff)
 			}
 
-			// Verify the result is between before and after (accounting for processing time)
+			// Verify the result is in the past
 			if result.After(before) {
 				t.Errorf("Result should be before function call time")
 			}
