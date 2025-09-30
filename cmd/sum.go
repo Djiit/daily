@@ -3,10 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"daily/internal/activity"
 	"daily/internal/cache"
 	"daily/internal/config"
 	"daily/internal/output"
@@ -18,8 +21,12 @@ import (
 	"daily/internal/tui"
 )
 
+// sinceDurationRe is a compiled regex for parsing since duration format (e.g., "1d", "2w")
+var sinceDurationRe = regexp.MustCompile(`^(\d+)([hdwm])$`)
+
 func SumCmd() *cobra.Command {
 	var date string
+	var since string
 	var compact bool
 	var verbose bool
 	var outputFormat string
@@ -34,13 +41,45 @@ func SumCmd() *cobra.Command {
 				return fmt.Errorf("invalid output format: %s (must be 'text', 'json', or 'tui')", outputFormat)
 			}
 
-			targetDate, err := parseDate(date)
-			if err != nil {
-				return fmt.Errorf("invalid date format: %w", err)
+			// Handle --since and --date mutual exclusivity
+			if since != "" && date != "" {
+				return fmt.Errorf("cannot use both --since and --date flags")
 			}
 
-			if outputFormat == "text" {
-				fmt.Printf("Gathering activities for %s...\n", targetDate.Format("2006-01-02"))
+			// Default to --since 1d if neither flag is provided
+			if since == "" && date == "" {
+				since = "1d"
+			}
+
+			// Determine if we're using since-based or date-based querying
+			var usingSince bool
+			var fromTime, toTime time.Time
+			var targetDate time.Time
+
+			if since != "" {
+				usingSince = true
+				var err error
+				fromTime, err = parseSinceDuration(since)
+				if err != nil {
+					return fmt.Errorf("invalid since format: %w", err)
+				}
+				toTime = time.Now()
+				targetDate = fromTime // Use from time as the summary date
+
+				if outputFormat == "text" {
+					fmt.Printf("Gathering activities since %s (%s to now)...\n", since, fromTime.Format("2006-01-02 15:04"))
+				}
+			} else {
+				usingSince = false
+				var err error
+				targetDate, err = parseDate(date)
+				if err != nil {
+					return fmt.Errorf("invalid date format: %w", err)
+				}
+
+				if outputFormat == "text" {
+					fmt.Printf("Gathering activities for %s...\n", targetDate.Format("2006-01-02"))
+				}
 			}
 
 			// Initialize cache
@@ -49,8 +88,8 @@ func SumCmd() *cobra.Command {
 				return fmt.Errorf("failed to initialize cache: %w", err)
 			}
 
-			// Check cache first for historical dates
-			if summaryCache.ShouldCache(targetDate) {
+			// Check cache first for historical dates (only when using date-based queries)
+			if !usingSince && summaryCache.ShouldCache(targetDate) {
 				if cachedSummary, err := summaryCache.Get(targetDate); err != nil {
 					if outputFormat == "text" && verbose {
 						fmt.Printf("Cache read error (proceeding with fresh data): %v\n", err)
@@ -140,17 +179,29 @@ func SumCmd() *cobra.Command {
 			if showVerbose {
 				fmt.Println()
 			}
-			summary, err := aggregator.GetSummaryWithVerbose(ctx, targetDate, showVerbose)
-			if err != nil {
-				return fmt.Errorf("failed to get activity summary: %w", err)
+
+			var summary *activity.Summary
+
+			if usingSince {
+				// Use time range method for --since
+				summary, err = aggregator.GetSummaryByTimeRange(ctx, fromTime, toTime, showVerbose)
+				if err != nil {
+					return fmt.Errorf("failed to get activity summary: %w", err)
+				}
+			} else {
+				// Use date-based method for --date
+				summary, err = aggregator.GetSummaryWithVerbose(ctx, targetDate, showVerbose)
+				if err != nil {
+					return fmt.Errorf("failed to get activity summary: %w", err)
+				}
 			}
 
 			if showVerbose {
 				fmt.Printf("\n📊 Retrieved %d total activities\n\n", len(summary.Activities))
 			}
 
-			// Cache the summary if it's for a historical date
-			if summaryCache.ShouldCache(targetDate) {
+			// Cache the summary if it's for a historical date (only for date-based queries)
+			if !usingSince && summaryCache.ShouldCache(targetDate) {
 				if err := summaryCache.Set(targetDate, summary); err != nil {
 					if outputFormat == "text" && verbose {
 						fmt.Printf("Warning: Failed to cache summary: %v\n", err)
@@ -190,7 +241,8 @@ func SumCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&date, "date", "d", "yesterday", "Date to get summary for (yesterday, today, or YYYY-MM-DD)")
+	cmd.Flags().StringVarP(&date, "date", "d", "", "Date to get summary for (yesterday, today, or YYYY-MM-DD)")
+	cmd.Flags().StringVarP(&since, "since", "s", "", "Time range to look back (e.g., 1h, 1d, 2w, 1m). Default: 1d")
 	cmd.Flags().BoolVarP(&compact, "compact", "c", false, "Use compact output format (text mode only)")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output for debugging (text mode only)")
 	cmd.Flags().StringVarP(&outputFormat, "output", "o", "tui", "Output format: 'tui', 'text', or 'json'")
@@ -208,5 +260,37 @@ func parseDate(dateStr string) (time.Time, error) {
 		return now.AddDate(0, 0, -1), nil
 	default:
 		return time.Parse("2006-01-02", dateStr)
+	}
+}
+
+// parseSinceDuration parses a "since" duration string (e.g., "1d", "2w", "3h", "1m")
+// and returns the "from" time (now - duration)
+func parseSinceDuration(since string) (time.Time, error) {
+	// Match format: number + unit (h/d/w/m)
+	matches := sinceDurationRe.FindStringSubmatch(since)
+
+	if matches == nil {
+		return time.Time{}, fmt.Errorf("invalid since format: %s (expected format: 1h, 1d, 1w, or 1m)", since)
+	}
+
+	value, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid since value: %s", matches[1])
+	}
+
+	unit := matches[2]
+	now := time.Now()
+
+	switch unit {
+	case "h":
+		return now.Add(-time.Duration(value) * time.Hour), nil
+	case "d":
+		return now.AddDate(0, 0, -value), nil
+	case "w":
+		return now.AddDate(0, 0, -value*7), nil
+	case "m":
+		return now.AddDate(0, -value, 0), nil
+	default:
+		return time.Time{}, fmt.Errorf("invalid since unit: %s (expected h, d, w, or m)", unit)
 	}
 }

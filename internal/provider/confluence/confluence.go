@@ -60,13 +60,18 @@ func (p *Provider) GetActivities(ctx context.Context, from, to time.Time) ([]act
 }
 
 // GetMentions retrieves pages that mention the user (for todos)
-func (p *Provider) GetMentions(ctx context.Context) ([]TodoItem, error) {
+func (p *Provider) GetMentions(ctx context.Context, since string) ([]TodoItem, error) {
 	if !p.IsConfigured() {
 		return nil, fmt.Errorf("Confluence provider not configured")
 	}
 
+	// Ensure since has "-" prefix for CQL format
+	if !strings.HasPrefix(since, "-") {
+		since = "-" + since
+	}
+
 	// CQL to find mentions of current user
-	cql := "mention = currentUser() AND lastModified >= now(\"-2w\")"
+	cql := fmt.Sprintf("mention = currentUser() AND lastModified >= now(\"%s\")", since)
 
 	searchResults, err := p.searchConfluence(ctx, cql)
 	if err != nil {

@@ -68,7 +68,10 @@ Each provider has `enabled`, `username`, `email`, `token`, and `url` fields as n
 ## Key CLI Usage Patterns
 
 ### Daily Summary
-- `./daily sum` - Get yesterday's summary (default TUI output)
+- `./daily sum` - Get activities from last day (default: --since 1d)
+- `./daily sum --since 2w` - Get activities from last 2 weeks
+- `./daily sum --since 3h` - Get activities from last 3 hours
+- `./daily sum -d yesterday` - Get specific date summary (date-based query)
 - `./daily sum -d today` - Get today's summary
 - `./daily sum -d 2024-01-15` - Get specific date summary
 - `./daily sum -v` - Verbose output showing provider status (text mode only)
@@ -77,8 +80,12 @@ Each provider has `enabled`, `username`, `email`, `token`, and `url` fields as n
 - `./daily sum -o text` - Text output format
 - `./daily sum -o tui` - TUI output format (default)
 
+**Note**: Cannot use both `--since` and `--date` flags together. Default behavior uses `--since 1d`.
+
 ### Todo Management
-- `./daily todo` - Get pending work items (default TUI output)
+- `./daily todo` - Get pending work items (default: --since 2w for Confluence mentions)
+- `./daily todo --since 1w` - Limit Confluence mentions to last week
+- `./daily todo --since 1d` - Only show recent Confluence mentions from last day
 - `./daily todo -v` - Verbose output showing provider status (text mode only)
 - `./daily todo -o json` - JSON output format
 - `./daily todo -o text` - Text output format
