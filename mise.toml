@@ -4,6 +4,10 @@ golangci-lint = "latest"
 hk = "latest"
 "npm:prettier" = "latest"
 pkl = "latest"
+"go:github.com/jstemmer/go-junit-report/v2" = "latest"
+
+[settings]
+experimental = true
 
 [tasks.build]
 description = "Build the daily binary"

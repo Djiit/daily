@@ -34,7 +34,6 @@ jobs:
       - name: Run Unit Tests
         run: |
           mise run test-cov | tee report.out
-          go install github.com/jstemmer/go-junit-report/v2@latest
           go-junit-report -set-exit-code > tests-report.xml < report.out
       - name: Upload Results
         uses: actions/upload-artifact@v4
