@@ -1,9 +1,13 @@
 [tools]
-go = "1.24.5"
+go = "1.25.1"
 golangci-lint = "latest"
 hk = "latest"
 "npm:prettier" = "latest"
 pkl = "latest"
+"go:github.com/jstemmer/go-junit-report/v2" = "latest"
+
+[settings]
+experimental = true
 
 [tasks.build]
 description = "Build the daily binary"
@@ -19,4 +23,8 @@ run = "go fmt ./... && go vet ./... && golangci-lint run"
 
 [tasks.test]
 description = "Test the daily CLI"
+run = "go test ./..."
+
+[tasks.test-cov]
+description = "Test the daily CLI with Coverage"
 run = "go test ./..."
