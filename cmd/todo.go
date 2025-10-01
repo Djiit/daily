@@ -140,7 +140,7 @@ func TodoCmd() *cobra.Command {
 					} else {
 						todoItems.Confluence = confluenceTodos
 						if showVerbose {
-							fmt.Printf("✅ Confluence returned %d mentions\n", len(confluenceTodos.Mentions))
+							fmt.Printf("✅ Confluence returned %d items (mentions + comments on your pages)\n", len(confluenceTodos.Mentions))
 						}
 					}
 				} else if showVerbose {
@@ -283,18 +283,47 @@ func getConfluenceTodos(ctx context.Context, provider *confluence.Provider, sinc
 		return todos, fmt.Errorf("failed to get Confluence mentions: %w", err)
 	}
 
-	// Convert from confluence.TodoItem to output.TodoItem
-	todos.Mentions = make([]output.TodoItem, len(mentions))
-	for i, item := range mentions {
-		todos.Mentions[i] = output.TodoItem{
-			ID:          item.ID,
-			Title:       item.Title,
-			Description: item.Description,
-			URL:         item.URL,
-			UpdatedAt:   item.UpdatedAt,
-			Tags:        item.Tags,
+	// Get comments on pages created by the user
+	commentsOnMyPages, err := provider.GetCommentsOnMyPages(ctx, since)
+	if err != nil {
+		return todos, fmt.Errorf("failed to get comments on my pages: %w", err)
+	}
+
+	// Combine results and deduplicate by ID
+	seenIDs := make(map[string]bool)
+	var allItems []output.TodoItem
+
+	// Add mentions first
+	for _, item := range mentions {
+		if !seenIDs[item.ID] {
+			allItems = append(allItems, output.TodoItem{
+				ID:          item.ID,
+				Title:       item.Title,
+				Description: item.Description,
+				URL:         item.URL,
+				UpdatedAt:   item.UpdatedAt,
+				Tags:        item.Tags,
+			})
+			seenIDs[item.ID] = true
 		}
 	}
+
+	// Add comments on my pages (skip duplicates)
+	for _, item := range commentsOnMyPages {
+		if !seenIDs[item.ID] {
+			allItems = append(allItems, output.TodoItem{
+				ID:          item.ID,
+				Title:       item.Title,
+				Description: item.Description,
+				URL:         item.URL,
+				UpdatedAt:   item.UpdatedAt,
+				Tags:        item.Tags,
+			})
+			seenIDs[item.ID] = true
+		}
+	}
+
+	todos.Mentions = allItems
 
 	return todos, nil
 }

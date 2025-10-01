@@ -497,6 +497,58 @@ func TestProvider_GetBaseURL(t *testing.T) {
 	}
 }
 
+func TestProvider_GetCommentsOnMyPages(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      provider.Config
+		expectError bool
+	}{
+		{
+			name: "configured provider",
+			config: provider.Config{
+				Email:   "test@example.com",
+				Token:   "testtoken",
+				URL:     "example.atlassian.net",
+				Enabled: true,
+			},
+			expectError: false,
+		},
+		{
+			name: "unconfigured provider",
+			config: provider.Config{
+				Email:   "",
+				Token:   "",
+				URL:     "",
+				Enabled: false,
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewProvider(tt.config)
+
+			comments, err := p.GetCommentsOnMyPages(context.Background(), "2d")
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected error for unconfigured provider, got nil")
+				}
+				return
+			}
+
+			// For configured provider with fake credentials, we expect an error
+			if err == nil {
+				t.Error("Expected error with fake credentials, got nil")
+			}
+
+			// comments could be nil or empty due to error, which is acceptable
+			_ = comments
+		})
+	}
+}
+
 func TestProvider_GetMentions_SinceFormat(t *testing.T) {
 	tests := []struct {
 		name       string

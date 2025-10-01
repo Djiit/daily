@@ -98,6 +98,61 @@ func (p *Provider) GetMentions(ctx context.Context, since string) ([]TodoItem, e
 	return mentions, nil
 }
 
+// GetCommentsOnMyPages retrieves comments on pages created by the user
+func (p *Provider) GetCommentsOnMyPages(ctx context.Context, since string) ([]TodoItem, error) {
+	if !p.IsConfigured() {
+		return nil, fmt.Errorf("Confluence provider not configured")
+	}
+
+	// Step 1: Get all pages created by current user
+	myPagesCQL := "creator = currentUser() AND type = page"
+	myPages, err := p.searchConfluence(ctx, myPagesCQL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user pages: %w", err)
+	}
+
+	if len(myPages.Results) == 0 {
+		return []TodoItem{}, nil
+	}
+
+	// Build a map of page IDs for quick lookup
+	pageIDMap := make(map[string]string) // map[pageID]pageTitle
+	for _, page := range myPages.Results {
+		pageIDMap[page.Content.ID] = page.Content.Title
+	}
+
+	// Ensure since has "-" prefix for CQL format
+	if !strings.HasPrefix(since, "-") {
+		since = "-" + since
+	}
+
+	// Step 2: Get all recent comments
+	commentsCQL := fmt.Sprintf("type = comment AND lastModified > now(\"%s\")", since)
+	allComments, err := p.searchConfluence(ctx, commentsCQL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent comments: %w", err)
+	}
+
+	// Step 3: Filter comments to only those on my pages
+	var commentsOnMyPages []TodoItem
+	for _, comment := range allComments.Results {
+		// Check if the comment's parent page is one of my pages
+		parentPageID := comment.ResultParentContainer.ID
+		if pageTitle, exists := pageIDMap[parentPageID]; exists {
+			commentsOnMyPages = append(commentsOnMyPages, TodoItem{
+				ID:          comment.Content.ID,
+				Title:       comment.Content.Title,
+				Description: fmt.Sprintf("Comment on: %s", pageTitle),
+				URL:         fmt.Sprintf("%s/wiki%s", p.getBaseURL(), comment.URL),
+				UpdatedAt:   time.Now(), // Confluence search doesn't provide lastModified in this format
+				Tags:        []string{"comment", "my_page"},
+			})
+		}
+	}
+
+	return commentsOnMyPages, nil
+}
+
 // getContributions retrieves pages that the user contributed to
 func (p *Provider) getContributions(ctx context.Context, from, to time.Time) ([]activity.Activity, error) {
 	// CQL to find pages contributed to by current user in date range
@@ -191,6 +246,11 @@ type ConfluenceSearchResult struct {
 			Title string `json:"title"`
 			Type  string `json:"type"`
 		} `json:"content"`
+		ResultParentContainer struct {
+			ID    string `json:"id"`
+			Title string `json:"title"`
+			Type  string `json:"type"`
+		} `json:"resultParentContainer"`
 		URL string `json:"url"`
 	} `json:"results"`
 }
