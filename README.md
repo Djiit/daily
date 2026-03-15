@@ -542,3 +542,9 @@ This will show:
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+Why do programmers prefer dark mode?
+
+Because light attracts bugs.
